@@ -4,7 +4,7 @@ use wiremock::matchers::{body_json, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::common::build_test_client;
-use vault_client_rs::{KvConfig, KvMetadataParams, Kv2Operations};
+use vault_client_rs::{Kv2Operations, KvConfig, KvMetadataParams};
 
 fn kv_metadata_json() -> serde_json::Value {
     serde_json::json!({
@@ -72,7 +72,11 @@ async fn kv2_write_wraps_data_in_envelope() {
 
     let client = build_test_client(&server).await;
     let data: HashMap<&str, &str> = [("username", "admin"), ("password", "s3cret")].into();
-    let meta = client.kv2("secret").write("my-secret", &data).await.unwrap();
+    let meta = client
+        .kv2("secret")
+        .write("my-secret", &data)
+        .await
+        .unwrap();
     assert_eq!(meta.version, 1);
 }
 
@@ -269,7 +273,11 @@ async fn kv2_read_subkeys_returns_structure() {
         .await;
 
     let client = build_test_client(&server).await;
-    let subkeys = client.kv2("secret").read_subkeys("my-secret", None).await.unwrap();
+    let subkeys = client
+        .kv2("secret")
+        .read_subkeys("my-secret", None)
+        .await
+        .unwrap();
     assert!(subkeys.get("subkeys").is_some());
     assert!(subkeys.get("subkeys").unwrap().get("username").is_some());
     assert!(subkeys.get("subkeys").unwrap().get("nested").is_some());
@@ -302,7 +310,11 @@ async fn kv2_read_subkeys_with_depth() {
         .await;
 
     let client = build_test_client(&server).await;
-    let subkeys = client.kv2("secret").read_subkeys("my-secret", Some(1)).await.unwrap();
+    let subkeys = client
+        .kv2("secret")
+        .read_subkeys("my-secret", Some(1))
+        .await
+        .unwrap();
     assert!(subkeys.get("subkeys").unwrap().get("username").is_some());
 }
 
@@ -384,7 +396,11 @@ async fn kv2_read_metadata_returns_full_metadata() {
         .await;
 
     let client = build_test_client(&server).await;
-    let meta = client.kv2("secret").read_metadata("my-secret").await.unwrap();
+    let meta = client
+        .kv2("secret")
+        .read_metadata("my-secret")
+        .await
+        .unwrap();
     assert_eq!(meta.current_version, 3);
     assert_eq!(meta.versions.len(), 3);
 }
@@ -407,7 +423,11 @@ async fn kv2_write_metadata_posts_params() {
         delete_version_after: None,
         custom_metadata: None,
     };
-    client.kv2("secret").write_metadata("my-secret", &params).await.unwrap();
+    client
+        .kv2("secret")
+        .write_metadata("my-secret", &params)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -422,5 +442,9 @@ async fn kv2_delete_metadata_sends_delete() {
         .await;
 
     let client = build_test_client(&server).await;
-    client.kv2("secret").delete_metadata("my-secret").await.unwrap();
+    client
+        .kv2("secret")
+        .delete_metadata("my-secret")
+        .await
+        .unwrap();
 }

@@ -17,11 +17,7 @@ pub struct AppRoleAuthHandler<'a> {
 }
 
 impl AppRoleAuthOperations for AppRoleAuthHandler<'_> {
-    async fn login(
-        &self,
-        role_id: &str,
-        secret_id: &SecretString,
-    ) -> Result<AuthInfo, VaultError> {
+    async fn login(&self, role_id: &str, secret_id: &SecretString) -> Result<AuthInfo, VaultError> {
         let body = serde_json::json!({
             "role_id": role_id,
             "secret_id": secret_id.expose_secret(),
@@ -92,10 +88,7 @@ impl AppRoleAuthOperations for AppRoleAuthHandler<'_> {
         Ok(resp.role_id)
     }
 
-    async fn generate_secret_id(
-        &self,
-        name: &str,
-    ) -> Result<AppRoleSecretIdResponse, VaultError> {
+    async fn generate_secret_id(&self, name: &str) -> Result<AppRoleSecretIdResponse, VaultError> {
         self.client
             .exec_with_data(
                 Method::POST,
@@ -114,7 +107,11 @@ impl AppRoleAuthOperations for AppRoleAuthHandler<'_> {
         self.client
             .exec_empty(
                 Method::POST,
-                &format!("auth/{}/role/{}/secret-id/destroy", self.mount, encode_path(name)),
+                &format!(
+                    "auth/{}/role/{}/secret-id/destroy",
+                    self.mount,
+                    encode_path(name)
+                ),
                 Some(&body),
             )
             .await

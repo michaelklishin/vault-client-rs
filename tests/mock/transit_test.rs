@@ -22,7 +22,11 @@ async fn create_key_posts_to_correct_path() {
         key_type: Some("aes256-gcm96".to_string()),
         ..Default::default()
     };
-    client.transit("transit").create_key("my-key", &params).await.unwrap();
+    client
+        .transit("transit")
+        .create_key("my-key", &params)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -108,7 +112,9 @@ async fn decrypt_base64_decodes_plaintext() {
     // "hello" in base64 is "aGVsbG8="
     Mock::given(method("POST"))
         .and(path("/v1/transit/decrypt/my-key"))
-        .and(body_json(serde_json::json!({"ciphertext": "vault:v1:abcdef"})))
+        .and(body_json(
+            serde_json::json!({"ciphertext": "vault:v1:abcdef"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": {"plaintext": "aGVsbG8="}
         })))
@@ -131,7 +137,9 @@ async fn rewrap_returns_new_ciphertext() {
 
     Mock::given(method("POST"))
         .and(path("/v1/transit/rewrap/my-key"))
-        .and(body_json(serde_json::json!({"ciphertext": "vault:v1:oldct"})))
+        .and(body_json(
+            serde_json::json!({"ciphertext": "vault:v1:oldct"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": {"ciphertext": "vault:v2:newct"}
         })))
@@ -160,7 +168,11 @@ async fn rotate_key_posts_to_rotate_path() {
         .await;
 
     let client = build_test_client(&server).await;
-    client.transit("transit").rotate_key("my-key").await.unwrap();
+    client
+        .transit("transit")
+        .rotate_key("my-key")
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -169,7 +181,9 @@ async fn hash_returns_sum() {
 
     Mock::given(method("POST"))
         .and(path("/v1/transit/hash"))
-        .and(body_json(serde_json::json!({"input": "aGVsbG8=", "algorithm": "sha2-256"})))
+        .and(body_json(
+            serde_json::json!({"input": "aGVsbG8=", "algorithm": "sha2-256"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": {"sum": "vault:sha2-256:abc123"}
         })))
@@ -192,7 +206,9 @@ async fn random_returns_bytes() {
 
     Mock::given(method("POST"))
         .and(path("/v1/transit/random"))
-        .and(body_json(serde_json::json!({"bytes": 32, "format": "base64"})))
+        .and(body_json(
+            serde_json::json!({"bytes": 32, "format": "base64"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": {"random_bytes": "dGVzdA=="}
         })))
@@ -201,7 +217,11 @@ async fn random_returns_bytes() {
         .await;
 
     let client = build_test_client(&server).await;
-    let rand = client.transit("transit").random(32, "base64").await.unwrap();
+    let rand = client
+        .transit("transit")
+        .random(32, "base64")
+        .await
+        .unwrap();
     assert_eq!(rand, "dGVzdA==");
 }
 
@@ -211,7 +231,9 @@ async fn sign_sends_base64_input() {
 
     Mock::given(method("POST"))
         .and(path("/v1/transit/sign/my-key"))
-        .and(body_partial_json(serde_json::json!({"input": "ZGF0YSB0byBzaWdu"})))
+        .and(body_partial_json(
+            serde_json::json!({"input": "ZGF0YSB0byBzaWdu"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": {"signature": "vault:v1:MEUCIQDx..."}
         })))
@@ -234,7 +256,9 @@ async fn verify_returns_valid_flag() {
 
     Mock::given(method("POST"))
         .and(path("/v1/transit/verify/my-key"))
-        .and(body_json(serde_json::json!({"input": "ZGF0YQ==", "signature": "vault:v1:sig"})))
+        .and(body_json(
+            serde_json::json!({"input": "ZGF0YQ==", "signature": "vault:v1:sig"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": {"valid": true}
         })))
@@ -263,7 +287,11 @@ async fn delete_key_sends_delete_method() {
         .await;
 
     let client = build_test_client(&server).await;
-    client.transit("transit").delete_key("my-key").await.unwrap();
+    client
+        .transit("transit")
+        .delete_key("my-key")
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -295,7 +323,11 @@ async fn custom_mount_path_is_used() {
         .await;
 
     let client = build_test_client(&server).await;
-    let info = client.transit("my-transit").read_key("testkey").await.unwrap();
+    let info = client
+        .transit("my-transit")
+        .read_key("testkey")
+        .await
+        .unwrap();
     assert_eq!(info.name, "testkey");
 }
 
@@ -320,7 +352,11 @@ async fn update_key_config_posts_to_config_path() {
         min_decryption_version: Some(2),
         ..Default::default()
     };
-    client.transit("transit").update_key_config("my-key", &cfg).await.unwrap();
+    client
+        .transit("transit")
+        .update_key_config("my-key", &cfg)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -405,8 +441,14 @@ async fn batch_encrypt_returns_ciphertexts() {
 
     let client = build_test_client(&server).await;
     let items = vec![
-        TransitBatchPlaintext { plaintext: "aGVsbG8=".to_string(), context: None },
-        TransitBatchPlaintext { plaintext: "d29ybGQ=".to_string(), context: None },
+        TransitBatchPlaintext {
+            plaintext: "aGVsbG8=".to_string(),
+            context: None,
+        },
+        TransitBatchPlaintext {
+            plaintext: "d29ybGQ=".to_string(),
+            context: None,
+        },
     ];
     let results = client
         .transit("transit")
@@ -446,15 +488,22 @@ async fn batch_decrypt_returns_plaintexts() {
     let items: Vec<TransitBatchCiphertext> = serde_json::from_value(serde_json::json!([
         {"ciphertext": "vault:v1:ct1"},
         {"ciphertext": "vault:v1:ct2"}
-    ])).unwrap();
+    ]))
+    .unwrap();
     let results = client
         .transit("transit")
         .batch_decrypt("my-key", &items)
         .await
         .unwrap();
     assert_eq!(results.len(), 2);
-    assert_eq!(results[0].plaintext.as_ref().unwrap().expose_secret(), "aGVsbG8=");
-    assert_eq!(results[1].plaintext.as_ref().unwrap().expose_secret(), "d29ybGQ=");
+    assert_eq!(
+        results[0].plaintext.as_ref().unwrap().expose_secret(),
+        "aGVsbG8="
+    );
+    assert_eq!(
+        results[1].plaintext.as_ref().unwrap().expose_secret(),
+        "d29ybGQ="
+    );
 }
 
 #[tokio::test]
@@ -463,7 +512,9 @@ async fn hmac_returns_hmac_value() {
 
     Mock::given(method("POST"))
         .and(path("/v1/transit/hmac/my-key"))
-        .and(body_json(serde_json::json!({"input": "aGVsbG8=", "algorithm": "sha2-256"})))
+        .and(body_json(
+            serde_json::json!({"input": "aGVsbG8=", "algorithm": "sha2-256"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": {"hmac": "vault:v1:hmacvalue123"}
         })))
@@ -503,7 +554,10 @@ async fn generate_data_key_returns_key() {
         .await
         .unwrap();
     assert_eq!(dk.ciphertext, "vault:v1:encrypteddatakey");
-    assert_eq!(dk.plaintext.as_ref().unwrap().expose_secret(), "dGVzdGRhdGFrZXk=");
+    assert_eq!(
+        dk.plaintext.as_ref().unwrap().expose_secret(),
+        "dGVzdGRhdGFrZXk="
+    );
 }
 
 #[tokio::test]
@@ -544,7 +598,11 @@ async fn trim_key_posts_min_version() {
         .await;
 
     let client = build_test_client(&server).await;
-    client.transit("transit").trim_key("my-key", 3).await.unwrap();
+    client
+        .transit("transit")
+        .trim_key("my-key", 3)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -561,7 +619,11 @@ async fn backup_key_returns_backup_string() {
         .await;
 
     let client = build_test_client(&server).await;
-    let backup = client.transit("transit").backup_key("my-key").await.unwrap();
+    let backup = client
+        .transit("transit")
+        .backup_key("my-key")
+        .await
+        .unwrap();
     assert_eq!(backup.expose_secret(), "base64encodedbackupdata");
 }
 
@@ -571,7 +633,9 @@ async fn restore_key_posts_backup_data() {
 
     Mock::given(method("POST"))
         .and(path("/v1/transit/restore/my-key"))
-        .and(body_json(serde_json::json!({"backup": "base64encodedbackupdata"})))
+        .and(body_json(
+            serde_json::json!({"backup": "base64encodedbackupdata"}),
+        ))
         .respond_with(ResponseTemplate::new(204))
         .expect(1)
         .mount(&server)
@@ -580,7 +644,10 @@ async fn restore_key_posts_backup_data() {
     let client = build_test_client(&server).await;
     client
         .transit("transit")
-        .restore_key("my-key", &SecretString::new("base64encodedbackupdata".into()))
+        .restore_key(
+            "my-key",
+            &SecretString::new("base64encodedbackupdata".into()),
+        )
         .await
         .unwrap();
 }
@@ -616,7 +683,11 @@ async fn write_cache_config_posts_size() {
         .await;
 
     let client = build_test_client(&server).await;
-    client.transit("transit").write_cache_config(1000).await.unwrap();
+    client
+        .transit("transit")
+        .write_cache_config(1000)
+        .await
+        .unwrap();
 }
 
 // ---------------------------------------------------------------------------

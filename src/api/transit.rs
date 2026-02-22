@@ -18,11 +18,7 @@ pub struct TransitHandler<'a> {
 impl TransitOperations for TransitHandler<'_> {
     // --- Key management ---
 
-    async fn create_key(
-        &self,
-        name: &str,
-        params: &TransitKeyParams,
-    ) -> Result<(), VaultError> {
+    async fn create_key(&self, name: &str, params: &TransitKeyParams) -> Result<(), VaultError> {
         let body = to_body(params)?;
         self.client
             .exec_empty(
@@ -35,7 +31,11 @@ impl TransitOperations for TransitHandler<'_> {
 
     async fn read_key(&self, name: &str) -> Result<TransitKeyInfo, VaultError> {
         self.client
-            .exec_with_data(Method::GET, &format!("{}/keys/{}", self.mount, encode_path(name)), None)
+            .exec_with_data(
+                Method::GET,
+                &format!("{}/keys/{}", self.mount, encode_path(name)),
+                None,
+            )
             .await
     }
 
@@ -85,19 +85,26 @@ impl TransitOperations for TransitHandler<'_> {
         version: Option<u64>,
     ) -> Result<TransitExportedKey, VaultError> {
         let path = match version {
-            Some(v) => format!("{}/export/{}/{}/{}", self.mount, encode_path(key_type), encode_path(name), v),
-            None => format!("{}/export/{}/{}", self.mount, encode_path(key_type), encode_path(name)),
+            Some(v) => format!(
+                "{}/export/{}/{}/{}",
+                self.mount,
+                encode_path(key_type),
+                encode_path(name),
+                v
+            ),
+            None => format!(
+                "{}/export/{}/{}",
+                self.mount,
+                encode_path(key_type),
+                encode_path(name)
+            ),
         };
         self.client.exec_with_data(Method::GET, &path, None).await
     }
 
     // --- Encrypt / decrypt ---
 
-    async fn encrypt(
-        &self,
-        name: &str,
-        plaintext: &SecretString,
-    ) -> Result<String, VaultError> {
+    async fn encrypt(&self, name: &str, plaintext: &SecretString) -> Result<String, VaultError> {
         let body = serde_json::json!({
             "plaintext": B64.encode(plaintext.expose_secret()),
         });
@@ -201,12 +208,7 @@ impl TransitOperations for TransitHandler<'_> {
         Ok(resp.signature)
     }
 
-    async fn verify(
-        &self,
-        name: &str,
-        input: &[u8],
-        signature: &str,
-    ) -> Result<bool, VaultError> {
+    async fn verify(&self, name: &str, input: &[u8], signature: &str) -> Result<bool, VaultError> {
         let body = serde_json::json!({
             "input": B64.encode(input),
             "signature": signature,
@@ -236,12 +238,7 @@ impl TransitOperations for TransitHandler<'_> {
         Ok(resp.sum)
     }
 
-    async fn hmac(
-        &self,
-        name: &str,
-        input: &[u8],
-        algorithm: &str,
-    ) -> Result<String, VaultError> {
+    async fn hmac(&self, name: &str, input: &[u8], algorithm: &str) -> Result<String, VaultError> {
         let body = serde_json::json!({
             "input": B64.encode(input),
             "algorithm": algorithm,
@@ -277,7 +274,12 @@ impl TransitOperations for TransitHandler<'_> {
         self.client
             .exec_with_data(
                 Method::POST,
-                &format!("{}/datakey/{}/{}", self.mount, encode_path(key_type), encode_path(name)),
+                &format!(
+                    "{}/datakey/{}/{}",
+                    self.mount,
+                    encode_path(key_type),
+                    encode_path(name)
+                ),
                 None,
             )
             .await
@@ -317,6 +319,43 @@ impl TransitOperations for TransitHandler<'_> {
                 Some(&body),
             )
             .await
+    }
+
+    async fn batch_sign(
+        &self,
+        name: &str,
+        items: &[TransitBatchSignInput],
+        params: &TransitSignParams,
+    ) -> Result<Vec<TransitBatchSignResult>, VaultError> {
+        let mut body = to_body(params)?;
+        body["batch_input"] = serde_json::to_value(items)
+            .map_err(|e| VaultError::Config(format!("serialize batch sign input: {e}")))?;
+        let resp: TransitBatchSignResponse = self
+            .client
+            .exec_with_data(
+                Method::POST,
+                &format!("{}/sign/{}", self.mount, encode_path(name)),
+                Some(&body),
+            )
+            .await?;
+        Ok(resp.batch_results)
+    }
+
+    async fn batch_verify(
+        &self,
+        name: &str,
+        items: &[TransitBatchVerifyInput],
+    ) -> Result<Vec<TransitBatchVerifyResult>, VaultError> {
+        let body = serde_json::json!({ "batch_input": items });
+        let resp: TransitBatchVerifyResponse = self
+            .client
+            .exec_with_data(
+                Method::POST,
+                &format!("{}/verify/{}", self.mount, encode_path(name)),
+                Some(&body),
+            )
+            .await?;
+        Ok(resp.batch_results)
     }
 
     async fn read_cache_config(&self) -> Result<TransitCacheConfig, VaultError> {

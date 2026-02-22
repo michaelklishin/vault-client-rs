@@ -93,7 +93,11 @@ async fn create_role_posts_to_correct_path() {
         max_ttl: Some("72h".to_string()),
         ..Default::default()
     };
-    client.pki("pki").create_role("web-server", &params).await.unwrap();
+    client
+        .pki("pki")
+        .create_role("web-server", &params)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -206,7 +210,11 @@ async fn issue_posts_to_role_path() {
         ttl: Some("24h".to_string()),
         ..Default::default()
     };
-    let cert = client.pki("pki").issue("web-server", &params).await.unwrap();
+    let cert = client
+        .pki("pki")
+        .issue("web-server", &params)
+        .await
+        .unwrap();
     assert_eq!(cert.serial_number, "11:22:33:44:55");
     assert_eq!(cert.private_key_type, "rsa");
     assert_eq!(cert.expiration, 1893456000);
@@ -234,7 +242,8 @@ async fn sign_posts_csr_to_role_path() {
 
     let client = build_test_client(&server).await;
     let params = PkiSignParams {
-        csr: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----".to_string(),
+        csr: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----"
+            .to_string(),
         common_name: "signed.example.com".to_string(),
         ttl: Some("12h".to_string()),
         ..Default::default()
@@ -328,8 +337,14 @@ async fn read_urls_returns_config() {
 
     let client = build_test_client(&server).await;
     let config = client.pki("pki").read_urls().await.unwrap();
-    assert_eq!(config.issuing_certificates, vec!["https://vault.example.com/v1/pki/ca"]);
-    assert_eq!(config.crl_distribution_points, vec!["https://vault.example.com/v1/pki/crl"]);
+    assert_eq!(
+        config.issuing_certificates,
+        vec!["https://vault.example.com/v1/pki/ca"]
+    );
+    assert_eq!(
+        config.crl_distribution_points,
+        vec!["https://vault.example.com/v1/pki/crl"]
+    );
     assert!(config.ocsp_servers.is_empty());
 }
 
@@ -420,7 +435,10 @@ async fn tidy_status_returns_state() {
     assert_eq!(status.state, "Finished");
     assert!(status.error.is_none());
     assert_eq!(status.time_started.as_deref(), Some("2024-01-01T00:00:00Z"));
-    assert_eq!(status.time_finished.as_deref(), Some("2024-01-01T00:05:00Z"));
+    assert_eq!(
+        status.time_finished.as_deref(),
+        Some("2024-01-01T00:05:00Z")
+    );
     assert_eq!(status.cert_store_deleted_count, Some(3));
     assert_eq!(status.revoked_cert_deleted_count, Some(1));
 }
@@ -488,7 +506,11 @@ async fn generate_intermediate_csr_posts_with_generate_type_in_path() {
         common_name: "My Intermediate CA".to_string(),
         ..Default::default()
     };
-    let csr = client.pki("pki").generate_intermediate_csr(&params).await.unwrap();
+    let csr = client
+        .pki("pki")
+        .generate_intermediate_csr(&params)
+        .await
+        .unwrap();
     assert!(csr.csr.contains("CERTIFICATE REQUEST"));
     assert!(csr.private_key.is_none());
 }
@@ -512,9 +534,19 @@ async fn set_signed_intermediate_posts_certificate() {
 
     let client = build_test_client(&server).await;
     let cert = "-----BEGIN CERTIFICATE-----\nSIGNED-INTERMEDIATE\n-----END CERTIFICATE-----";
-    let result = client.pki("pki").set_signed_intermediate(cert).await.unwrap();
-    assert_eq!(result.imported_issuers.as_deref(), Some(&["issuer-id-1".to_string()][..]));
-    assert_eq!(result.imported_keys.as_deref(), Some(&["key-id-1".to_string()][..]));
+    let result = client
+        .pki("pki")
+        .set_signed_intermediate(cert)
+        .await
+        .unwrap();
+    assert_eq!(
+        result.imported_issuers.as_deref(),
+        Some(&["issuer-id-1".to_string()][..])
+    );
+    assert_eq!(
+        result.imported_keys.as_deref(),
+        Some(&["key-id-1".to_string()][..])
+    );
 }
 
 #[tokio::test]
@@ -578,7 +610,11 @@ async fn delete_issuer_sends_delete_method() {
         .await;
 
     let client = build_test_client(&server).await;
-    client.pki("pki").delete_issuer("issuer-id-1").await.unwrap();
+    client
+        .pki("pki")
+        .delete_issuer("issuer-id-1")
+        .await
+        .unwrap();
 }
 
 // --- Sign verbatim ---
@@ -604,7 +640,11 @@ async fn sign_verbatim_posts_csr_to_sign_verbatim_path() {
 
     let client = build_test_client(&server).await;
     let csr = "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----";
-    let cert = client.pki("pki").sign_verbatim("web-server", csr).await.unwrap();
+    let cert = client
+        .pki("pki")
+        .sign_verbatim("web-server", csr)
+        .await
+        .unwrap();
     assert_eq!(cert.serial_number, "ff:ee:dd:cc:bb");
     assert!(cert.certificate.contains("VERBATIM"));
     assert_eq!(cert.expiration, 1893456000);
@@ -629,7 +669,9 @@ async fn revoke_with_key_posts_serial_and_private_key() {
         .await;
 
     let client = build_test_client(&server).await;
-    let private_key = SecretString::new("-----BEGIN RSA PRIVATE KEY-----\nKEY\n-----END RSA PRIVATE KEY-----".into());
+    let private_key = SecretString::new(
+        "-----BEGIN RSA PRIVATE KEY-----\nKEY\n-----END RSA PRIVATE KEY-----".into(),
+    );
     let info = client
         .pki("pki")
         .revoke_with_key("11:22:33:44:55", &private_key)

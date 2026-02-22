@@ -18,13 +18,21 @@ impl SysHandler<'_> {
     pub async fn enable_audit(&self, path: &str, params: &AuditParams) -> Result<(), VaultError> {
         let body = to_body(params)?;
         self.client
-            .exec_empty(Method::PUT, &format!("sys/audit/{}", encode_path(path)), Some(&body))
+            .exec_empty(
+                Method::PUT,
+                &format!("sys/audit/{}", encode_path(path)),
+                Some(&body),
+            )
             .await
     }
 
     pub async fn disable_audit(&self, path: &str) -> Result<(), VaultError> {
         self.client
-            .exec_empty(Method::DELETE, &format!("sys/audit/{}", encode_path(path)), None)
+            .exec_empty(
+                Method::DELETE,
+                &format!("sys/audit/{}", encode_path(path)),
+                None,
+            )
             .await
     }
 }

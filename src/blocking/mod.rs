@@ -5,15 +5,20 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use crate::api::traits::{
-    AppRoleAuthOperations, K8sAuthOperations, Kv1Operations, Kv2Operations, PkiOperations,
-    TokenAuthOperations, TransitOperations,
+    AppRoleAuthOperations, CertAuthOperations, DatabaseOperations, GithubAuthOperations,
+    IdentityOperations, K8sAuthOperations, Kv1Operations, Kv2Operations, LdapAuthOperations,
+    OidcAuthOperations, PkiOperations, SshOperations, TokenAuthOperations, TransitOperations,
+    UserpassAuthOperations,
 };
 use crate::client::blocking_client::BlockingVaultClient;
 use crate::types::auth::*;
+use crate::types::database::*;
 use crate::types::error::VaultError;
+use crate::types::identity::*;
 use crate::types::kv::*;
 use crate::types::pki::*;
 use crate::types::response::{AuthInfo, WrapInfo};
+use crate::types::ssh::*;
 use crate::types::sys::*;
 use crate::types::transit::*;
 
@@ -54,6 +59,27 @@ impl BlockingVaultClient {
         }
     }
 
+    pub fn database(&self, mount: &str) -> DatabaseHandler<'_> {
+        DatabaseHandler {
+            inner: self.inner.database(mount),
+            rt: &self.rt,
+        }
+    }
+
+    pub fn ssh(&self, mount: &str) -> SshHandler<'_> {
+        SshHandler {
+            inner: self.inner.ssh(mount),
+            rt: &self.rt,
+        }
+    }
+
+    pub fn identity(&self) -> IdentityHandler<'_> {
+        IdentityHandler {
+            inner: self.inner.identity(),
+            rt: &self.rt,
+        }
+    }
+
     pub fn sys(&self) -> SysHandler<'_> {
         SysHandler {
             inner: self.inner.sys(),
@@ -74,12 +100,10 @@ impl BlockingVaultClient {
 // ---------------------------------------------------------------------------
 
 impl BlockingVaultClient {
-    /// Read from an arbitrary Vault path. Deserializes the `data` field.
     pub fn read<T: DeserializeOwned>(&self, path: &str) -> Result<T, VaultError> {
         self.rt.block_on(self.inner.read(path))
     }
 
-    /// Read from an arbitrary path, returning the full Vault response envelope.
     pub fn read_raw(
         &self,
         path: &str,
@@ -87,7 +111,6 @@ impl BlockingVaultClient {
         self.rt.block_on(self.inner.read_raw(path))
     }
 
-    /// Write to an arbitrary Vault path.
     pub fn write<T: DeserializeOwned>(
         &self,
         path: &str,
@@ -96,12 +119,10 @@ impl BlockingVaultClient {
         self.rt.block_on(self.inner.write(path, data))
     }
 
-    /// Delete at an arbitrary Vault path.
     pub fn delete(&self, path: &str) -> Result<(), VaultError> {
         self.rt.block_on(self.inner.delete(path))
     }
 
-    /// List keys at an arbitrary Vault path.
     pub fn list(&self, path: &str) -> Result<Vec<String>, VaultError> {
         self.rt.block_on(self.inner.list(path))
     }
@@ -152,7 +173,10 @@ impl Kv2Handler<'_> {
         self.rt.block_on(self.inner.write_config(cfg))
     }
 
-    pub fn read<T: DeserializeOwned + Send>(&self, path: &str) -> Result<KvReadResponse<T>, VaultError> {
+    pub fn read<T: DeserializeOwned + Send>(
+        &self,
+        path: &str,
+    ) -> Result<KvReadResponse<T>, VaultError> {
         self.rt.block_on(self.inner.read(path))
     }
 
@@ -250,11 +274,7 @@ impl TransitHandler<'_> {
         self.rt.block_on(self.inner.delete_key(name))
     }
 
-    pub fn update_key_config(
-        &self,
-        name: &str,
-        cfg: &TransitKeyConfig,
-    ) -> Result<(), VaultError> {
+    pub fn update_key_config(&self, name: &str, cfg: &TransitKeyConfig) -> Result<(), VaultError> {
         self.rt.block_on(self.inner.update_key_config(name, cfg))
     }
 
@@ -309,26 +329,32 @@ impl TransitHandler<'_> {
         self.rt.block_on(self.inner.sign(name, input, params))
     }
 
-    pub fn verify(
+    pub fn verify(&self, name: &str, input: &[u8], signature: &str) -> Result<bool, VaultError> {
+        self.rt.block_on(self.inner.verify(name, input, signature))
+    }
+
+    pub fn batch_sign(
         &self,
         name: &str,
-        input: &[u8],
-        signature: &str,
-    ) -> Result<bool, VaultError> {
-        self.rt
-            .block_on(self.inner.verify(name, input, signature))
+        items: &[TransitBatchSignInput],
+        params: &TransitSignParams,
+    ) -> Result<Vec<TransitBatchSignResult>, VaultError> {
+        self.rt.block_on(self.inner.batch_sign(name, items, params))
+    }
+
+    pub fn batch_verify(
+        &self,
+        name: &str,
+        items: &[TransitBatchVerifyInput],
+    ) -> Result<Vec<TransitBatchVerifyResult>, VaultError> {
+        self.rt.block_on(self.inner.batch_verify(name, items))
     }
 
     pub fn hash(&self, input: &[u8], algorithm: &str) -> Result<String, VaultError> {
         self.rt.block_on(self.inner.hash(input, algorithm))
     }
 
-    pub fn hmac(
-        &self,
-        name: &str,
-        input: &[u8],
-        algorithm: &str,
-    ) -> Result<String, VaultError> {
+    pub fn hmac(&self, name: &str, input: &[u8], algorithm: &str) -> Result<String, VaultError> {
         self.rt.block_on(self.inner.hmac(name, input, algorithm))
     }
 
@@ -408,6 +434,15 @@ impl PkiHandler<'_> {
         self.rt.block_on(self.inner.read_issuer(issuer_ref))
     }
 
+    pub fn update_issuer(
+        &self,
+        issuer_ref: &str,
+        params: &PkiIssuerUpdateParams,
+    ) -> Result<PkiIssuerInfo, VaultError> {
+        self.rt
+            .block_on(self.inner.update_issuer(issuer_ref, params))
+    }
+
     pub fn delete_issuer(&self, issuer_ref: &str) -> Result<(), VaultError> {
         self.rt.block_on(self.inner.delete_issuer(issuer_ref))
     }
@@ -479,6 +514,237 @@ impl PkiHandler<'_> {
 
     pub fn tidy_status(&self) -> Result<PkiTidyStatus, VaultError> {
         self.rt.block_on(self.inner.tidy_status())
+    }
+
+    pub fn cross_sign_intermediate(
+        &self,
+        params: &PkiCrossSignRequest,
+    ) -> Result<PkiCertificate, VaultError> {
+        self.rt.block_on(self.inner.cross_sign_intermediate(params))
+    }
+
+    pub fn read_acme_config(&self) -> Result<PkiAcmeConfig, VaultError> {
+        self.rt.block_on(self.inner.read_acme_config())
+    }
+
+    pub fn write_acme_config(&self, config: &PkiAcmeConfig) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.write_acme_config(config))
+    }
+
+    pub fn rotate_delta_crl(&self) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.rotate_delta_crl())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Database
+// ---------------------------------------------------------------------------
+
+pub struct DatabaseHandler<'a> {
+    inner: crate::api::database::DatabaseHandler<'a>,
+    rt: &'a tokio::runtime::Runtime,
+}
+
+impl DatabaseHandler<'_> {
+    pub fn configure(&self, name: &str, params: &DatabaseConfigRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.configure(name, params))
+    }
+
+    pub fn read_config(&self, name: &str) -> Result<DatabaseConfig, VaultError> {
+        self.rt.block_on(self.inner.read_config(name))
+    }
+
+    pub fn delete_config(&self, name: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_config(name))
+    }
+
+    pub fn list_connections(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_connections())
+    }
+
+    pub fn reset_connection(&self, name: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.reset_connection(name))
+    }
+
+    pub fn create_role(&self, name: &str, params: &DatabaseRoleRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.create_role(name, params))
+    }
+
+    pub fn read_role(&self, name: &str) -> Result<DatabaseRole, VaultError> {
+        self.rt.block_on(self.inner.read_role(name))
+    }
+
+    pub fn delete_role(&self, name: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_role(name))
+    }
+
+    pub fn list_roles(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_roles())
+    }
+
+    pub fn get_credentials(&self, role: &str) -> Result<DatabaseCredentials, VaultError> {
+        self.rt.block_on(self.inner.get_credentials(role))
+    }
+
+    pub fn create_static_role(
+        &self,
+        name: &str,
+        params: &DatabaseStaticRoleRequest,
+    ) -> Result<(), VaultError> {
+        self.rt
+            .block_on(self.inner.create_static_role(name, params))
+    }
+
+    pub fn read_static_role(&self, name: &str) -> Result<DatabaseStaticRole, VaultError> {
+        self.rt.block_on(self.inner.read_static_role(name))
+    }
+
+    pub fn delete_static_role(&self, name: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_static_role(name))
+    }
+
+    pub fn list_static_roles(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_static_roles())
+    }
+
+    pub fn get_static_credentials(
+        &self,
+        name: &str,
+    ) -> Result<DatabaseStaticCredentials, VaultError> {
+        self.rt.block_on(self.inner.get_static_credentials(name))
+    }
+
+    pub fn rotate_static_role(&self, name: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.rotate_static_role(name))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SSH
+// ---------------------------------------------------------------------------
+
+pub struct SshHandler<'a> {
+    inner: crate::api::ssh::SshHandler<'a>,
+    rt: &'a tokio::runtime::Runtime,
+}
+
+impl SshHandler<'_> {
+    pub fn configure_ca(&self, params: &SshCaConfigRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.configure_ca(params))
+    }
+
+    pub fn read_public_key(&self) -> Result<SshCaPublicKey, VaultError> {
+        self.rt.block_on(self.inner.read_public_key())
+    }
+
+    pub fn delete_ca(&self) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_ca())
+    }
+
+    pub fn create_role(&self, name: &str, params: &SshRoleRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.create_role(name, params))
+    }
+
+    pub fn read_role(&self, name: &str) -> Result<SshRole, VaultError> {
+        self.rt.block_on(self.inner.read_role(name))
+    }
+
+    pub fn delete_role(&self, name: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_role(name))
+    }
+
+    pub fn list_roles(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_roles())
+    }
+
+    pub fn sign_key(
+        &self,
+        role: &str,
+        params: &SshSignRequest,
+    ) -> Result<SshSignedKey, VaultError> {
+        self.rt.block_on(self.inner.sign_key(role, params))
+    }
+
+    pub fn verify_otp(&self, params: &SshVerifyRequest) -> Result<SshVerifyResponse, VaultError> {
+        self.rt.block_on(self.inner.verify_otp(params))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+pub struct IdentityHandler<'a> {
+    inner: crate::api::identity::IdentityHandler<'a>,
+    rt: &'a tokio::runtime::Runtime,
+}
+
+impl IdentityHandler<'_> {
+    pub fn create_entity(&self, params: &EntityCreateRequest) -> Result<Entity, VaultError> {
+        self.rt.block_on(self.inner.create_entity(params))
+    }
+
+    pub fn read_entity(&self, id: &str) -> Result<Entity, VaultError> {
+        self.rt.block_on(self.inner.read_entity(id))
+    }
+
+    pub fn read_entity_by_name(&self, name: &str) -> Result<Entity, VaultError> {
+        self.rt.block_on(self.inner.read_entity_by_name(name))
+    }
+
+    pub fn update_entity(&self, id: &str, params: &EntityCreateRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.update_entity(id, params))
+    }
+
+    pub fn delete_entity(&self, id: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_entity(id))
+    }
+
+    pub fn list_entities(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_entities())
+    }
+
+    pub fn create_entity_alias(
+        &self,
+        params: &EntityAliasCreateRequest,
+    ) -> Result<EntityAliasResponse, VaultError> {
+        self.rt.block_on(self.inner.create_entity_alias(params))
+    }
+
+    pub fn read_entity_alias(&self, id: &str) -> Result<EntityAliasResponse, VaultError> {
+        self.rt.block_on(self.inner.read_entity_alias(id))
+    }
+
+    pub fn delete_entity_alias(&self, id: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_entity_alias(id))
+    }
+
+    pub fn list_entity_aliases(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_entity_aliases())
+    }
+
+    pub fn create_group(&self, params: &GroupCreateRequest) -> Result<Group, VaultError> {
+        self.rt.block_on(self.inner.create_group(params))
+    }
+
+    pub fn read_group(&self, id: &str) -> Result<Group, VaultError> {
+        self.rt.block_on(self.inner.read_group(id))
+    }
+
+    pub fn read_group_by_name(&self, name: &str) -> Result<Group, VaultError> {
+        self.rt.block_on(self.inner.read_group_by_name(name))
+    }
+
+    pub fn update_group(&self, id: &str, params: &GroupCreateRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.update_group(id, params))
+    }
+
+    pub fn delete_group(&self, id: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_group(id))
+    }
+
+    pub fn list_groups(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_groups())
     }
 }
 
@@ -635,6 +901,138 @@ impl SysHandler<'_> {
     pub fn rotate_encryption_key(&self) -> Result<(), VaultError> {
         self.rt.block_on(self.inner.rotate_encryption_key())
     }
+
+    // --- New sys methods ---
+
+    pub fn list_plugins(&self, plugin_type: &str) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_plugins(plugin_type))
+    }
+
+    pub fn read_plugin(&self, plugin_type: &str, name: &str) -> Result<PluginInfo, VaultError> {
+        self.rt.block_on(self.inner.read_plugin(plugin_type, name))
+    }
+
+    pub fn register_plugin(&self, params: &RegisterPluginRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.register_plugin(params))
+    }
+
+    pub fn deregister_plugin(&self, plugin_type: &str, name: &str) -> Result<(), VaultError> {
+        self.rt
+            .block_on(self.inner.deregister_plugin(plugin_type, name))
+    }
+
+    pub fn reload_plugin(&self, plugin: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.reload_plugin(plugin))
+    }
+
+    pub fn raft_config(&self) -> Result<RaftConfig, VaultError> {
+        self.rt.block_on(self.inner.raft_config())
+    }
+
+    pub fn raft_autopilot_state(&self) -> Result<AutopilotState, VaultError> {
+        self.rt.block_on(self.inner.raft_autopilot_state())
+    }
+
+    pub fn raft_remove_peer(&self, server_id: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.raft_remove_peer(server_id))
+    }
+
+    pub fn list_namespaces(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_namespaces())
+    }
+
+    pub fn create_namespace(&self, path: &str) -> Result<NamespaceInfo, VaultError> {
+        self.rt.block_on(self.inner.create_namespace(path))
+    }
+
+    pub fn delete_namespace(&self, path: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_namespace(path))
+    }
+
+    pub fn list_rate_limit_quotas(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_rate_limit_quotas())
+    }
+
+    pub fn read_rate_limit_quota(&self, name: &str) -> Result<RateLimitQuota, VaultError> {
+        self.rt.block_on(self.inner.read_rate_limit_quota(name))
+    }
+
+    pub fn write_rate_limit_quota(
+        &self,
+        name: &str,
+        params: &RateLimitQuotaRequest,
+    ) -> Result<(), VaultError> {
+        self.rt
+            .block_on(self.inner.write_rate_limit_quota(name, params))
+    }
+
+    pub fn delete_rate_limit_quota(&self, name: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_rate_limit_quota(name))
+    }
+
+    pub fn rekey_init(&self, params: &RekeyInitRequest) -> Result<RekeyStatus, VaultError> {
+        self.rt.block_on(self.inner.rekey_init(params))
+    }
+
+    pub fn rekey_status(&self) -> Result<RekeyStatus, VaultError> {
+        self.rt.block_on(self.inner.rekey_status())
+    }
+
+    pub fn rekey_cancel(&self) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.rekey_cancel())
+    }
+
+    pub fn rekey_update(&self, key: &SecretString, nonce: &str) -> Result<RekeyStatus, VaultError> {
+        self.rt.block_on(self.inner.rekey_update(key, nonce))
+    }
+
+    pub fn generate_root_init(
+        &self,
+        params: &GenerateRootInitRequest,
+    ) -> Result<GenerateRootStatus, VaultError> {
+        self.rt.block_on(self.inner.generate_root_init(params))
+    }
+
+    pub fn generate_root_status(&self) -> Result<GenerateRootStatus, VaultError> {
+        self.rt.block_on(self.inner.generate_root_status())
+    }
+
+    pub fn generate_root_cancel(&self) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.generate_root_cancel())
+    }
+
+    pub fn generate_root_update(
+        &self,
+        key: &SecretString,
+        nonce: &str,
+    ) -> Result<GenerateRootStatus, VaultError> {
+        self.rt
+            .block_on(self.inner.generate_root_update(key, nonce))
+    }
+
+    pub fn remount(&self, from: &str, to: &str) -> Result<RemountStatus, VaultError> {
+        self.rt.block_on(self.inner.remount(from, to))
+    }
+
+    pub fn metrics_json(&self) -> Result<serde_json::Value, VaultError> {
+        self.rt.block_on(self.inner.metrics_json())
+    }
+
+    pub fn host_info(&self) -> Result<HostInfo, VaultError> {
+        self.rt.block_on(self.inner.host_info())
+    }
+
+    pub fn internal_counters_activity(&self) -> Result<serde_json::Value, VaultError> {
+        self.rt.block_on(self.inner.internal_counters_activity())
+    }
+
+    pub fn version_history(&self) -> Result<Vec<VersionHistoryEntry>, VaultError> {
+        self.rt.block_on(self.inner.version_history())
+    }
+
+    pub fn rewrap(&self, token: &SecretString) -> Result<WrapInfo, VaultError> {
+        self.rt.block_on(self.inner.rewrap(token))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -680,6 +1078,84 @@ impl<'a> AuthHandler<'a> {
             inner: self.inner.kubernetes_at(mount),
             rt: self.rt,
         }
+    }
+
+    pub fn userpass(&self) -> UserpassAuthHandler<'a> {
+        UserpassAuthHandler {
+            inner: self.inner.userpass(),
+            rt: self.rt,
+        }
+    }
+
+    pub fn userpass_at(&self, mount: &str) -> UserpassAuthHandler<'a> {
+        UserpassAuthHandler {
+            inner: self.inner.userpass_at(mount),
+            rt: self.rt,
+        }
+    }
+
+    pub fn ldap(&self) -> LdapAuthHandler<'a> {
+        LdapAuthHandler {
+            inner: self.inner.ldap(),
+            rt: self.rt,
+        }
+    }
+
+    pub fn ldap_at(&self, mount: &str) -> LdapAuthHandler<'a> {
+        LdapAuthHandler {
+            inner: self.inner.ldap_at(mount),
+            rt: self.rt,
+        }
+    }
+
+    pub fn cert(&self) -> CertAuthHandler<'a> {
+        CertAuthHandler {
+            inner: self.inner.cert(),
+            rt: self.rt,
+        }
+    }
+
+    pub fn cert_at(&self, mount: &str) -> CertAuthHandler<'a> {
+        CertAuthHandler {
+            inner: self.inner.cert_at(mount),
+            rt: self.rt,
+        }
+    }
+
+    pub fn github(&self) -> GithubAuthHandler<'a> {
+        GithubAuthHandler {
+            inner: self.inner.github(),
+            rt: self.rt,
+        }
+    }
+
+    pub fn github_at(&self, mount: &str) -> GithubAuthHandler<'a> {
+        GithubAuthHandler {
+            inner: self.inner.github_at(mount),
+            rt: self.rt,
+        }
+    }
+
+    pub fn oidc(&self) -> OidcAuthHandler<'a> {
+        OidcAuthHandler {
+            inner: self.inner.oidc(),
+            rt: self.rt,
+        }
+    }
+
+    pub fn oidc_at(&self, mount: &str) -> OidcAuthHandler<'a> {
+        OidcAuthHandler {
+            inner: self.inner.oidc_at(mount),
+            rt: self.rt,
+        }
+    }
+
+    pub fn jwt(&self) -> OidcAuthHandler<'a> {
+        self.oidc_at("jwt")
+    }
+
+    pub fn jwt_at(&self, mount: &str) -> OidcAuthHandler<'a> {
+        self.oidc_at(mount)
     }
 }
 
@@ -789,6 +1265,190 @@ impl K8sAuthHandler<'_> {
     }
 
     pub fn read_role(&self, name: &str) -> Result<K8sAuthRoleInfo, VaultError> {
+        self.rt.block_on(self.inner.read_role(name))
+    }
+
+    pub fn delete_role(&self, name: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_role(name))
+    }
+
+    pub fn list_roles(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_roles())
+    }
+}
+
+pub struct UserpassAuthHandler<'a> {
+    inner: crate::api::auth::userpass::UserpassAuthHandler<'a>,
+    rt: &'a tokio::runtime::Runtime,
+}
+
+impl UserpassAuthHandler<'_> {
+    pub fn login(&self, username: &str, password: &SecretString) -> Result<AuthInfo, VaultError> {
+        self.rt.block_on(self.inner.login(username, password))
+    }
+
+    pub fn create_user(
+        &self,
+        username: &str,
+        params: &UserpassUserRequest,
+    ) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.create_user(username, params))
+    }
+
+    pub fn read_user(&self, username: &str) -> Result<UserpassUserInfo, VaultError> {
+        self.rt.block_on(self.inner.read_user(username))
+    }
+
+    pub fn delete_user(&self, username: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_user(username))
+    }
+
+    pub fn list_users(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_users())
+    }
+
+    pub fn update_password(
+        &self,
+        username: &str,
+        password: &SecretString,
+    ) -> Result<(), VaultError> {
+        self.rt
+            .block_on(self.inner.update_password(username, password))
+    }
+}
+
+pub struct LdapAuthHandler<'a> {
+    inner: crate::api::auth::ldap::LdapAuthHandler<'a>,
+    rt: &'a tokio::runtime::Runtime,
+}
+
+impl LdapAuthHandler<'_> {
+    pub fn login(&self, username: &str, password: &SecretString) -> Result<AuthInfo, VaultError> {
+        self.rt.block_on(self.inner.login(username, password))
+    }
+
+    pub fn configure(&self, config: &LdapConfigRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.configure(config))
+    }
+
+    pub fn read_config(&self) -> Result<LdapConfig, VaultError> {
+        self.rt.block_on(self.inner.read_config())
+    }
+
+    pub fn write_group(&self, name: &str, params: &LdapGroupRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.write_group(name, params))
+    }
+
+    pub fn read_group(&self, name: &str) -> Result<LdapGroup, VaultError> {
+        self.rt.block_on(self.inner.read_group(name))
+    }
+
+    pub fn delete_group(&self, name: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_group(name))
+    }
+
+    pub fn list_groups(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_groups())
+    }
+
+    pub fn write_user(&self, name: &str, params: &LdapUserRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.write_user(name, params))
+    }
+
+    pub fn read_user(&self, name: &str) -> Result<LdapUser, VaultError> {
+        self.rt.block_on(self.inner.read_user(name))
+    }
+
+    pub fn delete_user(&self, name: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_user(name))
+    }
+
+    pub fn list_users(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_users())
+    }
+}
+
+pub struct CertAuthHandler<'a> {
+    inner: crate::api::auth::cert::CertAuthHandler<'a>,
+    rt: &'a tokio::runtime::Runtime,
+}
+
+impl CertAuthHandler<'_> {
+    pub fn login(&self, name: Option<&str>) -> Result<AuthInfo, VaultError> {
+        self.rt.block_on(self.inner.login(name))
+    }
+
+    pub fn create_role(&self, name: &str, params: &CertRoleRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.create_role(name, params))
+    }
+
+    pub fn read_role(&self, name: &str) -> Result<CertRoleInfo, VaultError> {
+        self.rt.block_on(self.inner.read_role(name))
+    }
+
+    pub fn delete_role(&self, name: &str) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.delete_role(name))
+    }
+
+    pub fn list_roles(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_roles())
+    }
+}
+
+pub struct GithubAuthHandler<'a> {
+    inner: crate::api::auth::github::GithubAuthHandler<'a>,
+    rt: &'a tokio::runtime::Runtime,
+}
+
+impl GithubAuthHandler<'_> {
+    pub fn login(&self, token: &SecretString) -> Result<AuthInfo, VaultError> {
+        self.rt.block_on(self.inner.login(token))
+    }
+
+    pub fn configure(&self, config: &GithubConfigRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.configure(config))
+    }
+
+    pub fn read_config(&self) -> Result<GithubConfig, VaultError> {
+        self.rt.block_on(self.inner.read_config())
+    }
+
+    pub fn map_team(&self, team: &str, params: &GithubTeamMapping) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.map_team(team, params))
+    }
+
+    pub fn read_team_mapping(&self, team: &str) -> Result<GithubTeamInfo, VaultError> {
+        self.rt.block_on(self.inner.read_team_mapping(team))
+    }
+
+    pub fn list_teams(&self) -> Result<Vec<String>, VaultError> {
+        self.rt.block_on(self.inner.list_teams())
+    }
+}
+
+pub struct OidcAuthHandler<'a> {
+    inner: crate::api::auth::oidc::OidcAuthHandler<'a>,
+    rt: &'a tokio::runtime::Runtime,
+}
+
+impl OidcAuthHandler<'_> {
+    pub fn login_jwt(&self, role: &str, jwt: &SecretString) -> Result<AuthInfo, VaultError> {
+        self.rt.block_on(self.inner.login_jwt(role, jwt))
+    }
+
+    pub fn configure(&self, config: &OidcConfigRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.configure(config))
+    }
+
+    pub fn read_config(&self) -> Result<OidcConfig, VaultError> {
+        self.rt.block_on(self.inner.read_config())
+    }
+
+    pub fn create_role(&self, name: &str, params: &OidcRoleRequest) -> Result<(), VaultError> {
+        self.rt.block_on(self.inner.create_role(name, params))
+    }
+
+    pub fn read_role(&self, name: &str) -> Result<OidcRoleInfo, VaultError> {
         self.rt.block_on(self.inner.read_role(name))
     }
 

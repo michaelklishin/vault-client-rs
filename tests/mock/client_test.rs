@@ -115,7 +115,10 @@ async fn wrap_ttl_header_is_sent() {
         .build()
         .unwrap();
 
-    let _ = client.kv2("secret").read::<serde_json::Value>("wrapped").await;
+    let _ = client
+        .kv2("secret")
+        .read::<serde_json::Value>("wrapped")
+        .await;
 }
 
 #[tokio::test]
@@ -136,7 +139,9 @@ async fn set_token_changes_header() {
         .await;
 
     let client = build_test_client(&server).await;
-    client.set_token(SecretString::new("new-token".into())).unwrap();
+    client
+        .set_token(SecretString::new("new-token".into()))
+        .unwrap();
     let _: vault_client_rs::KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("key").await.unwrap();
 }
@@ -194,7 +199,11 @@ async fn retry_exhausted_returns_error() {
         .build()
         .unwrap();
 
-    let err = client.kv2("secret").read::<serde_json::Value>("key").await.unwrap_err();
+    let err = client
+        .kv2("secret")
+        .read::<serde_json::Value>("key")
+        .await
+        .unwrap_err();
     assert!(matches!(err, vault_client_rs::VaultError::Sealed));
 }
 
@@ -255,8 +264,15 @@ async fn permission_denied_not_retried() {
         .build()
         .unwrap();
 
-    let err = client.kv2("secret").read::<serde_json::Value>("key").await.unwrap_err();
-    assert!(matches!(err, vault_client_rs::VaultError::PermissionDenied { .. }));
+    let err = client
+        .kv2("secret")
+        .read::<serde_json::Value>("key")
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        vault_client_rs::VaultError::PermissionDenied { .. }
+    ));
 }
 
 #[tokio::test]
@@ -270,7 +286,11 @@ async fn not_found_returns_error() {
         .await;
 
     let client = build_test_client(&server).await;
-    let err = client.kv2("secret").read::<serde_json::Value>("missing").await.unwrap_err();
+    let err = client
+        .kv2("secret")
+        .read::<serde_json::Value>("missing")
+        .await
+        .unwrap_err();
     assert!(matches!(err, vault_client_rs::VaultError::NotFound { .. }));
 }
 
@@ -335,7 +355,10 @@ async fn patch_sends_merge_patch_content_type() {
         .await;
 
     let client = build_test_client(&server).await;
-    let _ = client.kv2("secret").patch("myapp/config", &serde_json::json!({"new_key": "value"})).await;
+    let _ = client
+        .kv2("secret")
+        .patch("myapp/config", &serde_json::json!({"new_key": "value"}))
+        .await;
 }
 
 #[tokio::test]
@@ -352,7 +375,11 @@ async fn unauthorized_returns_api_error() {
         .await;
 
     let client = build_test_client(&server).await;
-    let err = client.kv2("secret").read::<serde_json::Value>("key").await.unwrap_err();
+    let err = client
+        .kv2("secret")
+        .read::<serde_json::Value>("key")
+        .await
+        .unwrap_err();
     assert!(
         matches!(err, vault_client_rs::VaultError::AuthRequired),
         "expected AuthRequired, got: {err:?}"
@@ -371,7 +398,11 @@ async fn malformed_json_returns_error() {
         .await;
 
     let client = build_test_client(&server).await;
-    let err = client.kv2("secret").read::<serde_json::Value>("key").await.unwrap_err();
+    let err = client
+        .kv2("secret")
+        .read::<serde_json::Value>("key")
+        .await
+        .unwrap_err();
     assert!(
         matches!(err, vault_client_rs::VaultError::Http(_)),
         "expected Http (deser) error, got: {err:?}"
@@ -392,7 +423,11 @@ async fn empty_data_envelope_returns_error() {
         .await;
 
     let client = build_test_client(&server).await;
-    let err = client.kv2("secret").read::<serde_json::Value>("key").await.unwrap_err();
+    let err = client
+        .kv2("secret")
+        .read::<serde_json::Value>("key")
+        .await
+        .unwrap_err();
     assert!(
         matches!(err, vault_client_rs::VaultError::EmptyResponse),
         "expected EmptyResponse, got: {err:?}"
@@ -413,7 +448,11 @@ async fn server_error_500_not_retried_when_max_zero() {
         .await;
 
     let client = build_test_client(&server).await;
-    let err = client.kv2("secret").read::<serde_json::Value>("key").await.unwrap_err();
+    let err = client
+        .kv2("secret")
+        .read::<serde_json::Value>("key")
+        .await
+        .unwrap_err();
     match err {
         vault_client_rs::VaultError::Api { status, errors } => {
             assert_eq!(status, 500);
@@ -441,7 +480,11 @@ async fn rate_limited_exhaustion() {
         .build()
         .unwrap();
 
-    let err = client.kv2("secret").read::<serde_json::Value>("key").await.unwrap_err();
+    let err = client
+        .kv2("secret")
+        .read::<serde_json::Value>("key")
+        .await
+        .unwrap_err();
     assert!(
         matches!(err, vault_client_rs::VaultError::RateLimited { .. }),
         "expected RateLimited, got: {err:?}"
@@ -466,7 +509,11 @@ async fn consistency_retry_exhaustion() {
         .build()
         .unwrap();
 
-    let err = client.kv2("secret").read::<serde_json::Value>("key").await.unwrap_err();
+    let err = client
+        .kv2("secret")
+        .read::<serde_json::Value>("key")
+        .await
+        .unwrap_err();
     assert!(
         matches!(err, vault_client_rs::VaultError::ConsistencyRetry),
         "expected ConsistencyRetry, got: {err:?}"
@@ -584,10 +631,7 @@ async fn rate_limited_with_retry_after_header() {
 
     Mock::given(method("GET"))
         .and(path("/v1/secret/data/key"))
-        .respond_with(
-            ResponseTemplate::new(429)
-                .append_header("Retry-After", "2"),
-        )
+        .respond_with(ResponseTemplate::new(429).append_header("Retry-After", "2"))
         .mount(&server)
         .await;
 
@@ -598,7 +642,11 @@ async fn rate_limited_with_retry_after_header() {
         .build()
         .unwrap();
 
-    let err = client.kv2("secret").read::<serde_json::Value>("key").await.unwrap_err();
+    let err = client
+        .kv2("secret")
+        .read::<serde_json::Value>("key")
+        .await
+        .unwrap_err();
     match err {
         vault_client_rs::VaultError::RateLimited { retry_after } => {
             assert_eq!(retry_after, Some(2));
@@ -653,7 +701,11 @@ async fn not_found_not_retried_even_with_retries() {
         .build()
         .unwrap();
 
-    let err = client.kv2("secret").read::<serde_json::Value>("missing").await.unwrap_err();
+    let err = client
+        .kv2("secret")
+        .read::<serde_json::Value>("missing")
+        .await
+        .unwrap_err();
     assert!(matches!(err, vault_client_rs::VaultError::NotFound { .. }));
 }
 

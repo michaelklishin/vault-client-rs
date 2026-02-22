@@ -16,15 +16,16 @@ pub struct PkiHandler<'a> {
 impl PkiOperations for PkiHandler<'_> {
     // --- CA management ---
 
-    async fn generate_root(
-        &self,
-        params: &PkiRootParams,
-    ) -> Result<PkiCertificate, VaultError> {
+    async fn generate_root(&self, params: &PkiRootParams) -> Result<PkiCertificate, VaultError> {
         let body = to_body(params)?;
         self.client
             .exec_with_data(
                 Method::POST,
-                &format!("{}/root/generate/{}", self.mount, encode_path(&params.generate_type)),
+                &format!(
+                    "{}/root/generate/{}",
+                    self.mount,
+                    encode_path(&params.generate_type)
+                ),
                 Some(&body),
             )
             .await
@@ -40,7 +41,8 @@ impl PkiOperations for PkiHandler<'_> {
                 Method::POST,
                 &format!(
                     "{}/intermediate/generate/{}",
-                    self.mount, encode_path(&params.generate_type)
+                    self.mount,
+                    encode_path(&params.generate_type)
                 ),
                 Some(&body),
             )
@@ -110,7 +112,11 @@ impl PkiOperations for PkiHandler<'_> {
 
     async fn read_role(&self, name: &str) -> Result<PkiRole, VaultError> {
         self.client
-            .exec_with_data(Method::GET, &format!("{}/roles/{}", self.mount, encode_path(name)), None)
+            .exec_with_data(
+                Method::GET,
+                &format!("{}/roles/{}", self.mount, encode_path(name)),
+                None,
+            )
             .await
     }
 
@@ -147,11 +153,7 @@ impl PkiOperations for PkiHandler<'_> {
             .await
     }
 
-    async fn sign(
-        &self,
-        role: &str,
-        params: &PkiSignParams,
-    ) -> Result<PkiSignedCert, VaultError> {
+    async fn sign(&self, role: &str, params: &PkiSignParams) -> Result<PkiSignedCert, VaultError> {
         let body = to_body(params)?;
         self.client
             .exec_with_data(
@@ -206,11 +208,7 @@ impl PkiOperations for PkiHandler<'_> {
 
     async fn read_urls(&self) -> Result<PkiUrlsConfig, VaultError> {
         self.client
-            .exec_with_data(
-                Method::GET,
-                &format!("{}/config/urls", self.mount),
-                None,
-            )
+            .exec_with_data(Method::GET, &format!("{}/config/urls", self.mount), None)
             .await
     }
 
@@ -260,6 +258,70 @@ impl PkiOperations for PkiHandler<'_> {
     async fn tidy_status(&self) -> Result<PkiTidyStatus, VaultError> {
         self.client
             .exec_with_data(Method::GET, &format!("{}/tidy-status", self.mount), None)
+            .await
+    }
+
+    // --- Issuer update ---
+
+    async fn update_issuer(
+        &self,
+        issuer_ref: &str,
+        params: &PkiIssuerUpdateParams,
+    ) -> Result<PkiIssuerInfo, VaultError> {
+        let body = to_body(params)?;
+        self.client
+            .exec_with_data(
+                Method::POST,
+                &format!("{}/issuer/{}", self.mount, encode_path(issuer_ref)),
+                Some(&body),
+            )
+            .await
+    }
+
+    // --- Cross-signing ---
+
+    async fn cross_sign_intermediate(
+        &self,
+        params: &PkiCrossSignRequest,
+    ) -> Result<PkiCertificate, VaultError> {
+        let body = to_body(params)?;
+        self.client
+            .exec_with_data(
+                Method::POST,
+                &format!("{}/intermediate/cross-sign", self.mount),
+                Some(&body),
+            )
+            .await
+    }
+
+    // --- ACME (Vault 1.14+) ---
+
+    async fn read_acme_config(&self) -> Result<PkiAcmeConfig, VaultError> {
+        self.client
+            .exec_with_data(Method::GET, &format!("{}/config/acme", self.mount), None)
+            .await
+    }
+
+    async fn write_acme_config(&self, config: &PkiAcmeConfig) -> Result<(), VaultError> {
+        let body = to_body(config)?;
+        self.client
+            .exec_empty(
+                Method::POST,
+                &format!("{}/config/acme", self.mount),
+                Some(&body),
+            )
+            .await
+    }
+
+    // --- Delta CRL ---
+
+    async fn rotate_delta_crl(&self) -> Result<(), VaultError> {
+        self.client
+            .exec_empty(
+                Method::POST,
+                &format!("{}/crl/rotate-delta", self.mount),
+                None,
+            )
             .await
     }
 }

@@ -2,20 +2,20 @@ use reqwest::Method;
 use secrecy::{ExposeSecret, SecretString};
 
 use crate::VaultClient;
-use crate::api::traits::K8sAuthOperations;
+use crate::api::traits::OidcAuthOperations;
 use crate::client::{encode_path, to_body};
-use crate::types::auth::{K8sAuthConfigRequest, K8sAuthRoleInfo, K8sAuthRoleRequest};
+use crate::types::auth::{OidcConfig, OidcConfigRequest, OidcRoleInfo, OidcRoleRequest};
 use crate::types::error::VaultError;
 use crate::types::response::AuthInfo;
 
 #[derive(Debug)]
-pub struct K8sAuthHandler<'a> {
+pub struct OidcAuthHandler<'a> {
     pub(crate) client: &'a VaultClient,
     pub(crate) mount: String,
 }
 
-impl K8sAuthOperations for K8sAuthHandler<'_> {
-    async fn login(&self, role: &str, jwt: &SecretString) -> Result<AuthInfo, VaultError> {
+impl OidcAuthOperations for OidcAuthHandler<'_> {
+    async fn login_jwt(&self, role: &str, jwt: &SecretString) -> Result<AuthInfo, VaultError> {
         let body = serde_json::json!({
             "role": role,
             "jwt": jwt.expose_secret(),
@@ -33,7 +33,7 @@ impl K8sAuthOperations for K8sAuthHandler<'_> {
         Ok(auth)
     }
 
-    async fn configure(&self, config: &K8sAuthConfigRequest) -> Result<(), VaultError> {
+    async fn configure(&self, config: &OidcConfigRequest) -> Result<(), VaultError> {
         let body = to_body(config)?;
         self.client
             .exec_empty(
@@ -44,7 +44,13 @@ impl K8sAuthOperations for K8sAuthHandler<'_> {
             .await
     }
 
-    async fn create_role(&self, name: &str, params: &K8sAuthRoleRequest) -> Result<(), VaultError> {
+    async fn read_config(&self) -> Result<OidcConfig, VaultError> {
+        self.client
+            .exec_with_data(Method::GET, &format!("auth/{}/config", self.mount), None)
+            .await
+    }
+
+    async fn create_role(&self, name: &str, params: &OidcRoleRequest) -> Result<(), VaultError> {
         let body = to_body(params)?;
         self.client
             .exec_empty(
@@ -55,7 +61,7 @@ impl K8sAuthOperations for K8sAuthHandler<'_> {
             .await
     }
 
-    async fn read_role(&self, name: &str) -> Result<K8sAuthRoleInfo, VaultError> {
+    async fn read_role(&self, name: &str) -> Result<OidcRoleInfo, VaultError> {
         self.client
             .exec_with_data(
                 Method::GET,

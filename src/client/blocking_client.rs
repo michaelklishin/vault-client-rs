@@ -116,6 +116,11 @@ impl BlockingClientBuilder {
         self
     }
 
+    pub fn auth_method(mut self, method: impl crate::api::auth::AuthMethod + 'static) -> Self {
+        self.0 = self.0.auth_method(method);
+        self
+    }
+
     pub fn with_reqwest_client(mut self, client: reqwest::Client) -> Self {
         self.0 = self.0.with_reqwest_client(client);
         self

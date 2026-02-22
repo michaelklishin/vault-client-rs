@@ -3,10 +3,10 @@ use wiremock::matchers::{body_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::common::build_test_client;
+use vault_client_rs::types::auth::*;
 use vault_client_rs::{
     AppRoleAuthOperations, K8sAuthOperations, Kv2Operations, TokenAuthOperations,
 };
-use vault_client_rs::types::auth::*;
 
 fn auth_response_json() -> serde_json::Value {
     serde_json::json!({
@@ -75,7 +75,9 @@ async fn token_create_returns_auth_info() {
 
     Mock::given(method("POST"))
         .and(path("/v1/auth/token/create"))
-        .and(body_json(serde_json::json!({"policies": ["default"], "ttl": "1h"})))
+        .and(body_json(
+            serde_json::json!({"policies": ["default"], "ttl": "1h"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(auth_response_json()))
         .expect(1)
         .mount(&server)
@@ -120,7 +122,12 @@ async fn token_revoke_accessor() {
         .await;
 
     let client = build_test_client(&server).await;
-    client.auth().token().revoke_accessor("acc-123").await.unwrap();
+    client
+        .auth()
+        .token()
+        .revoke_accessor("acc-123")
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -151,7 +158,9 @@ async fn approle_login_updates_token() {
 
     Mock::given(method("POST"))
         .and(path("/v1/auth/approle/login"))
-        .and(body_json(serde_json::json!({"role_id": "role-id", "secret_id": "secret-id"})))
+        .and(body_json(
+            serde_json::json!({"role_id": "role-id", "secret_id": "secret-id"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(auth_response_json()))
         .expect(1)
         .mount(&server)
@@ -194,7 +203,9 @@ async fn approle_create_role() {
 
     Mock::given(method("POST"))
         .and(path("/v1/auth/approle/role/my-role"))
-        .and(body_json(serde_json::json!({"token_policies": ["default"]})))
+        .and(body_json(
+            serde_json::json!({"token_policies": ["default"]}),
+        ))
         .respond_with(ResponseTemplate::new(204))
         .expect(1)
         .mount(&server)
@@ -205,7 +216,12 @@ async fn approle_create_role() {
         token_policies: Some(vec!["default".into()]),
         ..Default::default()
     };
-    client.auth().approle().create_role("my-role", &params).await.unwrap();
+    client
+        .auth()
+        .approle()
+        .create_role("my-role", &params)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -250,7 +266,12 @@ async fn approle_read_role_id() {
         .await;
 
     let client = build_test_client(&server).await;
-    let role_id = client.auth().approle().read_role_id("my-role").await.unwrap();
+    let role_id = client
+        .auth()
+        .approle()
+        .read_role_id("my-role")
+        .await
+        .unwrap();
     assert_eq!(role_id, "role-id-123");
 }
 
@@ -273,7 +294,12 @@ async fn approle_generate_secret_id() {
         .await;
 
     let client = build_test_client(&server).await;
-    let resp = client.auth().approle().generate_secret_id("my-role").await.unwrap();
+    let resp = client
+        .auth()
+        .approle()
+        .generate_secret_id("my-role")
+        .await
+        .unwrap();
     assert_eq!(resp.secret_id.expose_secret(), "s.mysecret");
     assert_eq!(resp.secret_id_accessor, "acc-secret");
 }
@@ -290,7 +316,12 @@ async fn approle_delete_role() {
         .await;
 
     let client = build_test_client(&server).await;
-    client.auth().approle().delete_role("my-role").await.unwrap();
+    client
+        .auth()
+        .approle()
+        .delete_role("my-role")
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -352,7 +383,10 @@ async fn k8s_login_returns_auth_info() {
     let auth = client
         .auth()
         .kubernetes()
-        .login("my-role", &SecretString::new("eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.fake".into()))
+        .login(
+            "my-role",
+            &SecretString::new("eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.fake".into()),
+        )
         .await
         .unwrap();
     assert_eq!(auth.client_token.expose_secret(), "s.newtoken");
@@ -377,7 +411,9 @@ async fn k8s_configure_posts_to_config_path() {
     let client = build_test_client(&server).await;
     let config = K8sAuthConfigRequest {
         kubernetes_host: "https://k8s.example.com:6443".into(),
-        kubernetes_ca_cert: Some("-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----".into()),
+        kubernetes_ca_cert: Some(
+            "-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----".into(),
+        ),
         ..Default::default()
     };
     client.auth().kubernetes().configure(&config).await.unwrap();
@@ -437,7 +473,12 @@ async fn k8s_read_role_returns_role_info() {
         .await;
 
     let client = build_test_client(&server).await;
-    let role = client.auth().kubernetes().read_role("my-role").await.unwrap();
+    let role = client
+        .auth()
+        .kubernetes()
+        .read_role("my-role")
+        .await
+        .unwrap();
     assert_eq!(role.bound_service_account_names, vec!["vault-auth"]);
     assert_eq!(role.bound_service_account_namespaces, vec!["default"]);
     assert_eq!(role.token_policies, vec!["my-policy"]);
@@ -457,7 +498,12 @@ async fn k8s_delete_role_sends_delete_method() {
         .await;
 
     let client = build_test_client(&server).await;
-    client.auth().kubernetes().delete_role("my-role").await.unwrap();
+    client
+        .auth()
+        .kubernetes()
+        .delete_role("my-role")
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -488,7 +534,9 @@ async fn token_create_orphan_returns_auth_info() {
 
     Mock::given(method("POST"))
         .and(path("/v1/auth/token/create-orphan"))
-        .and(body_json(serde_json::json!({"policies": ["default"], "ttl": "2h"})))
+        .and(body_json(
+            serde_json::json!({"policies": ["default"], "ttl": "2h"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(auth_response_json()))
         .expect(1)
         .mount(&server)

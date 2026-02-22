@@ -39,9 +39,10 @@ fn blocking_kv2_read() {
     rt.block_on(async {
         Mock::given(method("GET"))
             .and(path("/v1/secret/data/key"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(
-                kv2_response(serde_json::json!({"foo": "bar"})),
-            ))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(kv2_response(serde_json::json!({"foo": "bar"}))),
+            )
             .expect(1)
             .mount(&server)
             .await;
@@ -160,9 +161,10 @@ fn blocking_set_token() {
         Mock::given(method("GET"))
             .and(path("/v1/secret/data/key"))
             .and(header("X-Vault-Token", "updated"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(
-                kv2_response(serde_json::json!({"v": "1"})),
-            ))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(kv2_response(serde_json::json!({"v": "1"}))),
+            )
             .expect(1)
             .mount(&server)
             .await;
@@ -175,7 +177,9 @@ fn blocking_set_token() {
         .build()
         .unwrap();
 
-    client.set_token(SecretString::new("updated".into())).unwrap();
+    client
+        .set_token(SecretString::new("updated".into()))
+        .unwrap();
     let _: vault_client_rs::KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("key").unwrap();
 }

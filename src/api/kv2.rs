@@ -37,7 +37,11 @@ impl Kv2Operations for Kv2Handler<'_> {
         path: &str,
     ) -> Result<KvReadResponse<T>, VaultError> {
         self.client
-            .exec_with_data(Method::GET, &format!("{}/data/{}", self.mount, encode_path(path)), None)
+            .exec_with_data(
+                Method::GET,
+                &format!("{}/data/{}", self.mount, encode_path(path)),
+                None,
+            )
             .await
     }
 
@@ -49,7 +53,12 @@ impl Kv2Operations for Kv2Handler<'_> {
         self.client
             .exec_with_data(
                 Method::GET,
-                &format!("{}/data/{}?version={}", self.mount, encode_path(path), version),
+                &format!(
+                    "{}/data/{}?version={}",
+                    self.mount,
+                    encode_path(path),
+                    version
+                ),
                 None,
             )
             .await
@@ -134,11 +143,7 @@ impl Kv2Operations for Kv2Handler<'_> {
             .await
     }
 
-    async fn write_metadata(
-        &self,
-        path: &str,
-        meta: &KvMetadataParams,
-    ) -> Result<(), VaultError> {
+    async fn write_metadata(&self, path: &str, meta: &KvMetadataParams) -> Result<(), VaultError> {
         let body = to_body(meta)?;
         self.client
             .exec_empty(
@@ -177,12 +182,7 @@ impl Kv2Operations for Kv2Handler<'_> {
 impl Kv2Handler<'_> {
     // --- Private helper ---
 
-    async fn version_op(
-        &self,
-        op: &str,
-        path: &str,
-        versions: &[u64],
-    ) -> Result<(), VaultError> {
+    async fn version_op(&self, op: &str, path: &str, versions: &[u64]) -> Result<(), VaultError> {
         let body = serde_json::json!({ "versions": versions });
         self.client
             .exec_empty(

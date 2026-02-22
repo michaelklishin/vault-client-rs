@@ -9,6 +9,7 @@ use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::api;
+use crate::api::auth::AuthMethodDyn;
 use crate::types::error::VaultError;
 use crate::types::kv::ListResponse;
 use crate::types::response::{AuthInfo, VaultResponse};
@@ -48,6 +49,7 @@ pub(crate) struct VaultClientInner {
     pub(crate) token: RwLock<Option<TokenState>>,
     pub(crate) namespace: Option<String>,
     pub(crate) config: ClientConfig,
+    pub(crate) auth_method: Option<Arc<dyn AuthMethodDyn>>,
 }
 
 /// Internal token state. Fields beyond `value` are populated by
@@ -104,6 +106,7 @@ pub struct ClientBuilder {
     client_cert_pem: Option<Vec<u8>>,
     client_key_pem: Option<zeroize::Zeroizing<Vec<u8>>>,
     reqwest_client: Option<Client>,
+    auth_method: Option<Arc<dyn AuthMethodDyn>>,
 }
 
 impl Default for ClientBuilder {
@@ -135,6 +138,7 @@ impl Default for ClientBuilder {
                 .ok()
                 .and_then(|path| std::fs::read(path).ok().map(zeroize::Zeroizing::new)),
             reqwest_client: None,
+            auth_method: None,
         }
     }
 }
@@ -196,6 +200,14 @@ impl ClientBuilder {
         self
     }
 
+    /// Set an authentication method for automatic token lifecycle management.
+    /// When set, the client will automatically re-authenticate when the token
+    /// nears expiry or is missing.
+    pub fn auth_method(mut self, method: impl crate::api::auth::AuthMethod + 'static) -> Self {
+        self.auth_method = Some(Arc::new(method));
+        self
+    }
+
     pub fn with_reqwest_client(mut self, client: Client) -> Self {
         self.reqwest_client = Some(client);
         self
@@ -252,6 +264,7 @@ impl ClientBuilder {
                 token: RwLock::new(token_state),
                 namespace: self.namespace,
                 config,
+                auth_method: self.auth_method,
             }),
             namespace_override: None,
             wrap_ttl_override: None,
@@ -277,7 +290,8 @@ fn build_reqwest_client(
     }
 
     if let (Some(cert_pem), Some(key_pem)) = (client_cert_pem, client_key_pem) {
-        let mut combined = zeroize::Zeroizing::new(Vec::with_capacity(cert_pem.len() + key_pem.len()));
+        let mut combined =
+            zeroize::Zeroizing::new(Vec::with_capacity(cert_pem.len() + key_pem.len()));
         combined.extend_from_slice(cert_pem);
         combined.extend_from_slice(key_pem);
         let identity = reqwest::tls::Identity::from_pem(&combined)
@@ -326,6 +340,24 @@ impl VaultClient {
             client: self,
             mount: encode_path(mount),
         }
+    }
+
+    pub fn database(&self, mount: &str) -> api::database::DatabaseHandler<'_> {
+        api::database::DatabaseHandler {
+            client: self,
+            mount: encode_path(mount),
+        }
+    }
+
+    pub fn ssh(&self, mount: &str) -> api::ssh::SshHandler<'_> {
+        api::ssh::SshHandler {
+            client: self,
+            mount: encode_path(mount),
+        }
+    }
+
+    pub fn identity(&self) -> api::identity::IdentityHandler<'_> {
+        api::identity::IdentityHandler { client: self }
     }
 
     pub fn sys(&self) -> api::sys::SysHandler<'_> {
@@ -523,7 +555,100 @@ impl VaultClient {
         envelope.data.ok_or(VaultError::EmptyResponse)
     }
 
-    async fn execute(
+    fn token_needs_renewal(ts: &TokenState) -> bool {
+        match ts.expires_at {
+            Some(expires) => {
+                let threshold = ts.lease_duration.mul_f64(0.2);
+                Instant::now() + threshold >= expires
+            }
+            None => false, // root token or no expiry
+        }
+    }
+
+    /// Proactively renew or re-authenticate before the token expires.
+    /// Uses a double-check pattern to avoid redundant renewals under contention.
+    /// All lock guards are dropped before any `.await` to keep futures `Send`.
+    async fn ensure_valid_token(&self) -> Result<(), VaultError> {
+        enum Action {
+            Ok,
+            ReAuth,
+            Renew,
+        }
+
+        let action = {
+            let guard = self
+                .inner
+                .token
+                .read()
+                .map_err(|_| VaultError::LockPoisoned)?;
+            match guard.as_ref() {
+                Some(ts) if !Self::token_needs_renewal(ts) => Action::Ok,
+                Some(ts) if ts.renewable => Action::Renew,
+                _ if self.inner.auth_method.is_some() => Action::ReAuth,
+                // No token and no auth method: let the request through.
+                _ => Action::Ok,
+            }
+        }; // guard dropped
+
+        match action {
+            Action::Ok => Ok(()),
+            Action::ReAuth => self.try_re_authenticate().await,
+            Action::Renew => {
+                // Double-check under write lock
+                let still_needed = {
+                    let guard = self
+                        .inner
+                        .token
+                        .write()
+                        .map_err(|_| VaultError::LockPoisoned)?;
+                    guard.as_ref().is_some_and(Self::token_needs_renewal)
+                }; // write lock dropped
+
+                if !still_needed {
+                    return Ok(());
+                }
+
+                // POST auth/token/renew-self (no locks held, bypasses lifecycle)
+                let raw_resp = self
+                    .execute_raw(Method::POST, "auth/token/renew-self", None)
+                    .await?;
+                let resp: VaultResponse<serde_json::Value> = raw_resp.json().await?;
+                if let Some(auth) = resp.auth {
+                    self.update_token_from_auth(&auth)?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Attempt re-authentication using the configured auth method.
+    async fn try_re_authenticate(&self) -> Result<(), VaultError> {
+        match &self.inner.auth_method {
+            Some(method) => {
+                let auth = method.login_dyn(self).await?;
+                self.update_token_from_auth(&auth)?;
+                Ok(())
+            }
+            None => Err(VaultError::AuthRequired),
+        }
+    }
+
+    pub(crate) async fn execute(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<&serde_json::Value>,
+    ) -> Result<Response, VaultError> {
+        // Skip token lifecycle for auth endpoints to avoid infinite recursion
+        if !path.starts_with("auth/") {
+            self.ensure_valid_token().await?;
+        }
+        self.execute_raw(method, path, body).await
+    }
+
+    /// Low-level execute that bypasses token lifecycle. Used internally by
+    /// `ensure_valid_token` to avoid recursion.
+    async fn execute_raw(
         &self,
         method: Method,
         path: &str,

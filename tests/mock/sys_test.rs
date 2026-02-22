@@ -158,7 +158,9 @@ async fn write_policy_sends_put() {
 
     Mock::given(method("PUT"))
         .and(path("/v1/sys/policies/acl/my-policy"))
-        .and(body_json(serde_json::json!({"policy": r#"path "secret/*" { capabilities = ["read"] }"#})))
+        .and(body_json(
+            serde_json::json!({"policy": r#"path "secret/*" { capabilities = ["read"] }"#}),
+        ))
         .respond_with(ResponseTemplate::new(204))
         .expect(1)
         .mount(&server)
@@ -483,7 +485,10 @@ async fn read_policy_returns_info() {
     let client = build_test_client(&server).await;
     let policy = client.sys().read_policy("my-policy").await.unwrap();
     assert_eq!(policy.name, "my-policy");
-    assert_eq!(policy.policy, "path \"secret/*\" { capabilities = [\"read\"] }");
+    assert_eq!(
+        policy.policy,
+        "path \"secret/*\" { capabilities = [\"read\"] }"
+    );
 }
 
 #[tokio::test]
@@ -492,7 +497,9 @@ async fn read_lease_returns_info() {
 
     Mock::given(method("POST"))
         .and(path("/v1/sys/leases/lookup"))
-        .and(body_json(serde_json::json!({"lease_id": "auth/token/create/abc123"})))
+        .and(body_json(
+            serde_json::json!({"lease_id": "auth/token/create/abc123"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": {
                 "id": "auth/token/create/abc123",
@@ -508,7 +515,11 @@ async fn read_lease_returns_info() {
         .await;
 
     let client = build_test_client(&server).await;
-    let lease = client.sys().read_lease("auth/token/create/abc123").await.unwrap();
+    let lease = client
+        .sys()
+        .read_lease("auth/token/create/abc123")
+        .await
+        .unwrap();
     assert_eq!(lease.id, "auth/token/create/abc123");
     assert!(lease.renewable);
     assert_eq!(lease.ttl, 86400);
@@ -520,7 +531,9 @@ async fn renew_lease_sends_put() {
 
     Mock::given(method("PUT"))
         .and(path("/v1/sys/leases/renew"))
-        .and(body_json(serde_json::json!({"lease_id": "auth/token/create/abc123", "increment": "1h"})))
+        .and(body_json(
+            serde_json::json!({"lease_id": "auth/token/create/abc123", "increment": "1h"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "request_id": "req-123",
             "lease_id": "auth/token/create/abc123",
@@ -549,7 +562,9 @@ async fn renew_lease_without_increment() {
 
     Mock::given(method("PUT"))
         .and(path("/v1/sys/leases/renew"))
-        .and(body_json(serde_json::json!({"lease_id": "auth/token/create/abc123"})))
+        .and(body_json(
+            serde_json::json!({"lease_id": "auth/token/create/abc123"}),
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "lease_id": "auth/token/create/abc123",
             "lease_duration": 7200,
@@ -574,14 +589,20 @@ async fn revoke_lease_sends_put() {
 
     Mock::given(method("PUT"))
         .and(path("/v1/sys/leases/revoke"))
-        .and(body_json(serde_json::json!({"lease_id": "auth/token/create/abc123"})))
+        .and(body_json(
+            serde_json::json!({"lease_id": "auth/token/create/abc123"}),
+        ))
         .respond_with(ResponseTemplate::new(204))
         .expect(1)
         .mount(&server)
         .await;
 
     let client = build_test_client(&server).await;
-    client.sys().revoke_lease("auth/token/create/abc123").await.unwrap();
+    client
+        .sys()
+        .revoke_lease("auth/token/create/abc123")
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -624,7 +645,10 @@ async fn list_audit_devices_returns_map() {
     let devices = client.sys().list_audit_devices().await.unwrap();
     assert!(devices.contains_key("file/"));
     assert_eq!(devices["file/"].audit_type, "file");
-    assert_eq!(devices["file/"].options["file_path"], "/var/log/vault_audit.log");
+    assert_eq!(
+        devices["file/"].options["file_path"],
+        "/var/log/vault_audit.log"
+    );
 }
 
 #[tokio::test]
@@ -647,10 +671,18 @@ async fn enable_audit_sends_put() {
     let params = vault_client_rs::types::sys::AuditParams {
         audit_type: "file".into(),
         description: Some("file audit device".into()),
-        options: [("file_path".to_string(), "/var/log/vault_audit.log".to_string())].into(),
+        options: [(
+            "file_path".to_string(),
+            "/var/log/vault_audit.log".to_string(),
+        )]
+        .into(),
         local: None,
     };
-    client.sys().enable_audit("file-audit", &params).await.unwrap();
+    client
+        .sys()
+        .enable_audit("file-audit", &params)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]

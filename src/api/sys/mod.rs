@@ -2,7 +2,12 @@ mod audit;
 mod health;
 mod lease;
 mod mounts;
+mod namespaces;
+mod plugins;
 mod policy;
+mod quotas;
+mod raft;
+mod rekey;
 mod seal;
 mod wrapping;
 
@@ -137,5 +142,125 @@ impl SysOperations for SysHandler<'_> {
     }
     async fn rotate_encryption_key(&self) -> Result<(), VaultError> {
         self.rotate_encryption_key().await
+    }
+
+    // Plugins
+    async fn list_plugins(&self, plugin_type: &str) -> Result<Vec<String>, VaultError> {
+        self.list_plugins(plugin_type).await
+    }
+    async fn read_plugin(&self, plugin_type: &str, name: &str) -> Result<PluginInfo, VaultError> {
+        self.read_plugin(plugin_type, name).await
+    }
+    async fn register_plugin(&self, params: &RegisterPluginRequest) -> Result<(), VaultError> {
+        self.register_plugin(params).await
+    }
+    async fn deregister_plugin(&self, plugin_type: &str, name: &str) -> Result<(), VaultError> {
+        self.deregister_plugin(plugin_type, name).await
+    }
+    async fn reload_plugin(&self, plugin: &str) -> Result<(), VaultError> {
+        self.reload_plugin(plugin).await
+    }
+
+    // Raft
+    async fn raft_config(&self) -> Result<RaftConfig, VaultError> {
+        self.raft_config().await
+    }
+    async fn raft_autopilot_state(&self) -> Result<AutopilotState, VaultError> {
+        self.raft_autopilot_state().await
+    }
+    async fn raft_remove_peer(&self, server_id: &str) -> Result<(), VaultError> {
+        self.raft_remove_peer(server_id).await
+    }
+
+    // Namespaces
+    async fn list_namespaces(&self) -> Result<Vec<String>, VaultError> {
+        self.list_namespaces().await
+    }
+    async fn create_namespace(&self, path: &str) -> Result<NamespaceInfo, VaultError> {
+        self.create_namespace(path).await
+    }
+    async fn delete_namespace(&self, path: &str) -> Result<(), VaultError> {
+        self.delete_namespace(path).await
+    }
+
+    // Quotas
+    async fn list_rate_limit_quotas(&self) -> Result<Vec<String>, VaultError> {
+        self.list_rate_limit_quotas().await
+    }
+    async fn read_rate_limit_quota(&self, name: &str) -> Result<RateLimitQuota, VaultError> {
+        self.read_rate_limit_quota(name).await
+    }
+    async fn write_rate_limit_quota(
+        &self,
+        name: &str,
+        params: &RateLimitQuotaRequest,
+    ) -> Result<(), VaultError> {
+        self.write_rate_limit_quota(name, params).await
+    }
+    async fn delete_rate_limit_quota(&self, name: &str) -> Result<(), VaultError> {
+        self.delete_rate_limit_quota(name).await
+    }
+
+    // Rekey
+    async fn rekey_init(&self, params: &RekeyInitRequest) -> Result<RekeyStatus, VaultError> {
+        self.rekey_init(params).await
+    }
+    async fn rekey_status(&self) -> Result<RekeyStatus, VaultError> {
+        self.rekey_status().await
+    }
+    async fn rekey_cancel(&self) -> Result<(), VaultError> {
+        self.rekey_cancel().await
+    }
+    async fn rekey_update(
+        &self,
+        key: &SecretString,
+        nonce: &str,
+    ) -> Result<RekeyStatus, VaultError> {
+        self.rekey_update(key, nonce).await
+    }
+
+    // Generate root
+    async fn generate_root_init(
+        &self,
+        params: &GenerateRootInitRequest,
+    ) -> Result<GenerateRootStatus, VaultError> {
+        self.generate_root_init(params).await
+    }
+    async fn generate_root_status(&self) -> Result<GenerateRootStatus, VaultError> {
+        self.generate_root_status().await
+    }
+    async fn generate_root_cancel(&self) -> Result<(), VaultError> {
+        self.generate_root_cancel().await
+    }
+    async fn generate_root_update(
+        &self,
+        key: &SecretString,
+        nonce: &str,
+    ) -> Result<GenerateRootStatus, VaultError> {
+        self.generate_root_update(key, nonce).await
+    }
+
+    // Remount
+    async fn remount(&self, from: &str, to: &str) -> Result<RemountStatus, VaultError> {
+        self.remount(from, to).await
+    }
+
+    // Metrics & info
+    async fn metrics_json(&self) -> Result<serde_json::Value, VaultError> {
+        self.metrics_json().await
+    }
+    async fn host_info(&self) -> Result<HostInfo, VaultError> {
+        self.host_info().await
+    }
+    async fn internal_counters_activity(&self) -> Result<serde_json::Value, VaultError> {
+        self.internal_counters_activity().await
+    }
+    async fn version_history(&self) -> Result<Vec<VersionHistoryEntry>, VaultError> {
+        self.version_history().await
+    }
+
+    // Wrapping (rewrap)
+    async fn rewrap(&self, token: &SecretString) -> Result<WrapInfo, VaultError> {
+        self.rewrap(token).await
     }
 }

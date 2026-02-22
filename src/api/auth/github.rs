@@ -2,24 +2,21 @@ use reqwest::Method;
 use secrecy::{ExposeSecret, SecretString};
 
 use crate::VaultClient;
-use crate::api::traits::K8sAuthOperations;
+use crate::api::traits::GithubAuthOperations;
 use crate::client::{encode_path, to_body};
-use crate::types::auth::{K8sAuthConfigRequest, K8sAuthRoleInfo, K8sAuthRoleRequest};
+use crate::types::auth::{GithubConfig, GithubConfigRequest, GithubTeamInfo, GithubTeamMapping};
 use crate::types::error::VaultError;
 use crate::types::response::AuthInfo;
 
 #[derive(Debug)]
-pub struct K8sAuthHandler<'a> {
+pub struct GithubAuthHandler<'a> {
     pub(crate) client: &'a VaultClient,
     pub(crate) mount: String,
 }
 
-impl K8sAuthOperations for K8sAuthHandler<'_> {
-    async fn login(&self, role: &str, jwt: &SecretString) -> Result<AuthInfo, VaultError> {
-        let body = serde_json::json!({
-            "role": role,
-            "jwt": jwt.expose_secret(),
-        });
+impl GithubAuthOperations for GithubAuthHandler<'_> {
+    async fn login(&self, token: &SecretString) -> Result<AuthInfo, VaultError> {
+        let body = serde_json::json!({ "token": token.expose_secret() });
         let resp = self
             .client
             .exec_with_auth::<serde_json::Value>(
@@ -33,7 +30,7 @@ impl K8sAuthOperations for K8sAuthHandler<'_> {
         Ok(auth)
     }
 
-    async fn configure(&self, config: &K8sAuthConfigRequest) -> Result<(), VaultError> {
+    async fn configure(&self, config: &GithubConfigRequest) -> Result<(), VaultError> {
         let body = to_body(config)?;
         self.client
             .exec_empty(
@@ -44,40 +41,36 @@ impl K8sAuthOperations for K8sAuthHandler<'_> {
             .await
     }
 
-    async fn create_role(&self, name: &str, params: &K8sAuthRoleRequest) -> Result<(), VaultError> {
+    async fn read_config(&self) -> Result<GithubConfig, VaultError> {
+        self.client
+            .exec_with_data(Method::GET, &format!("auth/{}/config", self.mount), None)
+            .await
+    }
+
+    async fn map_team(&self, team: &str, params: &GithubTeamMapping) -> Result<(), VaultError> {
         let body = to_body(params)?;
         self.client
             .exec_empty(
                 Method::POST,
-                &format!("auth/{}/role/{}", self.mount, encode_path(name)),
+                &format!("auth/{}/map/teams/{}", self.mount, encode_path(team)),
                 Some(&body),
             )
             .await
     }
 
-    async fn read_role(&self, name: &str) -> Result<K8sAuthRoleInfo, VaultError> {
+    async fn read_team_mapping(&self, team: &str) -> Result<GithubTeamInfo, VaultError> {
         self.client
             .exec_with_data(
                 Method::GET,
-                &format!("auth/{}/role/{}", self.mount, encode_path(name)),
+                &format!("auth/{}/map/teams/{}", self.mount, encode_path(team)),
                 None,
             )
             .await
     }
 
-    async fn delete_role(&self, name: &str) -> Result<(), VaultError> {
+    async fn list_teams(&self) -> Result<Vec<String>, VaultError> {
         self.client
-            .exec_empty(
-                Method::DELETE,
-                &format!("auth/{}/role/{}", self.mount, encode_path(name)),
-                None,
-            )
-            .await
-    }
-
-    async fn list_roles(&self) -> Result<Vec<String>, VaultError> {
-        self.client
-            .exec_list(&format!("auth/{}/role", self.mount))
+            .exec_list(&format!("auth/{}/map/teams", self.mount))
             .await
     }
 }

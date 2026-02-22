@@ -15,8 +15,11 @@ async fn write_read_delete() {
     let kv = client.kv2("secret");
     let path = unique_name("kv2-wrd");
 
-    let data: HashMap<String, String> =
-        [("hello".into(), "world".into()), ("foo".into(), "bar".into())].into();
+    let data: HashMap<String, String> = [
+        ("hello".into(), "world".into()),
+        ("foo".into(), "bar".into()),
+    ]
+    .into();
 
     let meta = kv.write(&path, &data).await.unwrap();
     assert!(meta.version >= 1);
@@ -36,18 +39,12 @@ async fn list() {
     let kv = client.kv2("secret");
     let prefix = unique_name("kv2-list");
 
-    kv.write(
-        &format!("{prefix}/a"),
-        &serde_json::json!({"v": "1"}),
-    )
-    .await
-    .unwrap();
-    kv.write(
-        &format!("{prefix}/b"),
-        &serde_json::json!({"v": "2"}),
-    )
-    .await
-    .unwrap();
+    kv.write(&format!("{prefix}/a"), &serde_json::json!({"v": "1"}))
+        .await
+        .unwrap();
+    kv.write(&format!("{prefix}/b"), &serde_json::json!({"v": "2"}))
+        .await
+        .unwrap();
 
     let keys = kv.list(&format!("{prefix}/")).await.unwrap();
     assert!(keys.contains(&"a".to_string()));
@@ -63,8 +60,12 @@ async fn versioning() {
     let kv = client.kv2("secret");
     let path = unique_name("kv2-ver");
 
-    kv.write(&path, &serde_json::json!({"v": "1"})).await.unwrap();
-    kv.write(&path, &serde_json::json!({"v": "2"})).await.unwrap();
+    kv.write(&path, &serde_json::json!({"v": "1"}))
+        .await
+        .unwrap();
+    kv.write(&path, &serde_json::json!({"v": "2"}))
+        .await
+        .unwrap();
 
     let v1: KvReadResponse<HashMap<String, String>> = kv.read_version(&path, 1).await.unwrap();
     assert_eq!(v1.data["v"], "1");
@@ -81,7 +82,9 @@ async fn metadata() {
     let kv = client.kv2("secret");
     let path = unique_name("kv2-meta");
 
-    kv.write(&path, &serde_json::json!({"a": "b"})).await.unwrap();
+    kv.write(&path, &serde_json::json!({"a": "b"}))
+        .await
+        .unwrap();
 
     let meta = kv.read_metadata(&path).await.unwrap();
     assert!(meta.current_version >= 1);
@@ -114,9 +117,7 @@ async fn write_cas() {
     assert_eq!(meta2.version, 2);
 
     // CAS with stale version fails
-    let err = kv
-        .write_cas(&path, &serde_json::json!({"v": "3"}), 1)
-        .await;
+    let err = kv.write_cas(&path, &serde_json::json!({"v": "3"}), 1).await;
     assert!(err.is_err());
 
     kv.delete_metadata(&path).await.unwrap();
@@ -153,8 +154,12 @@ async fn delete_versions() {
     let kv = client.kv2("secret");
     let path = unique_name("kv2-delv");
 
-    kv.write(&path, &serde_json::json!({"v": "1"})).await.unwrap();
-    kv.write(&path, &serde_json::json!({"v": "2"})).await.unwrap();
+    kv.write(&path, &serde_json::json!({"v": "1"}))
+        .await
+        .unwrap();
+    kv.write(&path, &serde_json::json!({"v": "2"}))
+        .await
+        .unwrap();
 
     // Soft-delete version 1
     kv.delete_versions(&path, &[1]).await.unwrap();
@@ -173,7 +178,9 @@ async fn undelete_versions() {
     let kv = client.kv2("secret");
     let path = unique_name("kv2-undel");
 
-    kv.write(&path, &serde_json::json!({"v": "1"})).await.unwrap();
+    kv.write(&path, &serde_json::json!({"v": "1"}))
+        .await
+        .unwrap();
 
     // Soft-delete then undelete
     kv.delete_versions(&path, &[1]).await.unwrap();
@@ -192,8 +199,12 @@ async fn destroy_versions() {
     let kv = client.kv2("secret");
     let path = unique_name("kv2-dest");
 
-    kv.write(&path, &serde_json::json!({"v": "1"})).await.unwrap();
-    kv.write(&path, &serde_json::json!({"v": "2"})).await.unwrap();
+    kv.write(&path, &serde_json::json!({"v": "1"}))
+        .await
+        .unwrap();
+    kv.write(&path, &serde_json::json!({"v": "2"}))
+        .await
+        .unwrap();
 
     // Permanently destroy version 1
     kv.destroy_versions(&path, &[1]).await.unwrap();
@@ -235,7 +246,9 @@ async fn write_metadata() {
     let kv = client.kv2("secret");
     let path = unique_name("kv2-wmeta");
 
-    kv.write(&path, &serde_json::json!({"k": "v"})).await.unwrap();
+    kv.write(&path, &serde_json::json!({"k": "v"}))
+        .await
+        .unwrap();
 
     kv.write_metadata(
         &path,
@@ -289,7 +302,9 @@ async fn soft_delete_and_read() {
     let kv = client.kv2("secret");
     let path = unique_name("kv2-sdel");
 
-    kv.write(&path, &serde_json::json!({"v": "1"})).await.unwrap();
+    kv.write(&path, &serde_json::json!({"v": "1"}))
+        .await
+        .unwrap();
 
     // Soft-delete the latest version
     kv.delete(&path).await.unwrap();

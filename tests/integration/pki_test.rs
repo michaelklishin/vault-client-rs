@@ -73,11 +73,7 @@ async fn generate_root_and_read_issuer() {
     let issuers = client.pki(&mount).list_issuers().await.unwrap();
     assert!(!issuers.is_empty());
 
-    let issuer_info = client
-        .pki(&mount)
-        .read_issuer(&issuers[0])
-        .await
-        .unwrap();
+    let issuer_info = client.pki(&mount).read_issuer(&issuers[0]).await.unwrap();
     assert!(!issuer_info.certificate.is_empty());
 
     client.sys().unmount(&mount).await.unwrap();

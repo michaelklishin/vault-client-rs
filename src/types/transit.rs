@@ -157,7 +157,10 @@ impl std::fmt::Debug for TransitExportedKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TransitExportedKey")
             .field("name", &self.name)
-            .field("keys", &format_args!("[REDACTED; {} versions]", self.keys.len()))
+            .field(
+                "keys",
+                &format_args!("[REDACTED; {} versions]", self.keys.len()),
+            )
             .field("key_type", &self.key_type)
             .finish()
     }
@@ -171,11 +174,13 @@ pub struct TransitCacheConfig {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct TransitBatchEncryptResponse {
+    #[serde(default)]
     pub batch_results: Vec<TransitBatchCiphertext>,
 }
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct TransitBatchDecryptResponse {
+    #[serde(default)]
     pub batch_results: Vec<TransitBatchDecryptItem>,
 }
 
@@ -198,4 +203,49 @@ impl std::fmt::Debug for TransitBackupResponse {
             .field("backup", &"[REDACTED]")
             .finish()
     }
+}
+
+// --- Batch sign/verify ---
+
+#[derive(Debug, Serialize, Clone)]
+pub struct TransitBatchSignInput {
+    pub input: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[non_exhaustive]
+pub struct TransitBatchSignResult {
+    pub signature: String,
+    #[serde(default)]
+    pub error: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct TransitBatchVerifyInput {
+    pub input: String,
+    pub signature: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[non_exhaustive]
+pub struct TransitBatchVerifyResult {
+    pub valid: bool,
+    #[serde(default)]
+    pub error: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct TransitBatchSignResponse {
+    #[serde(default)]
+    pub batch_results: Vec<TransitBatchSignResult>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct TransitBatchVerifyResponse {
+    #[serde(default)]
+    pub batch_results: Vec<TransitBatchVerifyResult>,
 }

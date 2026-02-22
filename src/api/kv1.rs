@@ -16,7 +16,11 @@ pub struct Kv1Handler<'a> {
 impl<'a> Kv1Operations for Kv1Handler<'a> {
     async fn read<T: DeserializeOwned + Send>(&self, path: &str) -> Result<T, VaultError> {
         self.client
-            .exec_with_data(Method::GET, &format!("{}/{}", self.mount, encode_path(path)), None)
+            .exec_with_data(
+                Method::GET,
+                &format!("{}/{}", self.mount, encode_path(path)),
+                None,
+            )
             .await
     }
 
@@ -32,7 +36,11 @@ impl<'a> Kv1Operations for Kv1Handler<'a> {
 
     async fn delete(&self, path: &str) -> Result<(), VaultError> {
         self.client
-            .exec_empty(Method::DELETE, &format!("{}/{}", self.mount, encode_path(path)), None)
+            .exec_empty(
+                Method::DELETE,
+                &format!("{}/{}", self.mount, encode_path(path)),
+                None,
+            )
             .await
     }
 

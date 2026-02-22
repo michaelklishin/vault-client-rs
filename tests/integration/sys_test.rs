@@ -43,9 +43,7 @@ async fn policies() {
     let policies = client.sys().list_policies().await.unwrap();
     assert!(policies.contains(&"default".to_string()));
 
-    let rules = format!(
-        r#"path "secret/data/{name}/*" {{ capabilities = ["read"] }}"#
-    );
+    let rules = format!(r#"path "secret/data/{name}/*" {{ capabilities = ["read"] }}"#);
     client.sys().write_policy(&name, &rules).await.unwrap();
 
     let info = client.sys().read_policy(&name).await.unwrap();
@@ -185,7 +183,12 @@ async fn capabilities() {
     let cap_list = caps.get("sys/health").unwrap();
     assert!(cap_list.contains(&"deny".to_string()));
 
-    client.auth().token().revoke(&auth.client_token).await.unwrap();
+    client
+        .auth()
+        .token()
+        .revoke(&auth.client_token)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -240,9 +243,16 @@ async fn lease_read() {
     // but we can verify the API call succeeds or returns a known error
     let result = client.sys().read_lease(&lease_id).await;
     // Either succeeds or we get NotFound — both prove the API path works
-    assert!(result.is_ok() || matches!(result.unwrap_err(), vault_client_rs::VaultError::Api { .. }));
+    assert!(
+        result.is_ok() || matches!(result.unwrap_err(), vault_client_rs::VaultError::Api { .. })
+    );
 
-    client.auth().token().revoke(&auth.client_token).await.unwrap();
+    client
+        .auth()
+        .token()
+        .revoke(&auth.client_token)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -258,11 +268,7 @@ async fn wrap_lookup_and_unwrap() {
     };
 
     // When wrap_ttl is set, the auth response is wrapped
-    let resp = wrapping_client
-        .auth()
-        .token()
-        .create(&params)
-        .await;
+    let resp = wrapping_client.auth().token().create(&params).await;
 
     // The wrapping client returns the token in wrap_info rather than auth.
     // Since our API extracts auth, the call may succeed with wrapped token.
@@ -284,7 +290,11 @@ async fn wrap_lookup_and_unwrap() {
     // and test unwrap with a simulated wrap scenario.
 
     // Clean up
-    normal_client.kv2("secret").delete_metadata(&path).await.unwrap();
+    normal_client
+        .kv2("secret")
+        .delete_metadata(&path)
+        .await
+        .unwrap();
 
     // The basic construction test is enough — the wrapping client builds correctly
     drop(resp);

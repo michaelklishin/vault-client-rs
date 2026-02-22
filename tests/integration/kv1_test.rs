@@ -9,13 +9,11 @@ async fn write_read() {
     let client = build_client();
     let mount = mount_kv1(&client).await;
 
-    let data: HashMap<String, String> =
-        [("hello".into(), "world".into())].into();
+    let data: HashMap<String, String> = [("hello".into(), "world".into())].into();
 
     client.kv1(&mount).write("mykey", &data).await.unwrap();
 
-    let resp: HashMap<String, String> =
-        client.kv1(&mount).read("mykey").await.unwrap();
+    let resp: HashMap<String, String> = client.kv1(&mount).read("mykey").await.unwrap();
     assert_eq!(resp["hello"], "world");
 
     client.sys().unmount(&mount).await.unwrap();
@@ -80,8 +78,7 @@ async fn overwrite() {
         .await
         .unwrap();
 
-    let resp: HashMap<String, String> =
-        client.kv1(&mount).read("ow").await.unwrap();
+    let resp: HashMap<String, String> = client.kv1(&mount).read("ow").await.unwrap();
     assert_eq!(resp["v"], "2");
 
     client.sys().unmount(&mount).await.unwrap();

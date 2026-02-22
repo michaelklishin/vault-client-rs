@@ -20,13 +20,21 @@ impl SysHandler<'_> {
     pub async fn mount(&self, path: &str, params: &MountParams) -> Result<(), VaultError> {
         let body = to_body(params)?;
         self.client
-            .exec_empty(Method::POST, &format!("sys/mounts/{}", encode_path(path)), Some(&body))
+            .exec_empty(
+                Method::POST,
+                &format!("sys/mounts/{}", encode_path(path)),
+                Some(&body),
+            )
             .await
     }
 
     pub async fn unmount(&self, path: &str) -> Result<(), VaultError> {
         self.client
-            .exec_empty(Method::DELETE, &format!("sys/mounts/{}", encode_path(path)), None)
+            .exec_empty(
+                Method::DELETE,
+                &format!("sys/mounts/{}", encode_path(path)),
+                None,
+            )
             .await
     }
 
@@ -66,13 +74,21 @@ impl SysHandler<'_> {
     ) -> Result<(), VaultError> {
         let body = to_body(params)?;
         self.client
-            .exec_empty(Method::POST, &format!("sys/auth/{}", encode_path(path)), Some(&body))
+            .exec_empty(
+                Method::POST,
+                &format!("sys/auth/{}", encode_path(path)),
+                Some(&body),
+            )
             .await
     }
 
     pub async fn disable_auth(&self, path: &str) -> Result<(), VaultError> {
         self.client
-            .exec_empty(Method::DELETE, &format!("sys/auth/{}", encode_path(path)), None)
+            .exec_empty(
+                Method::DELETE,
+                &format!("sys/auth/{}", encode_path(path)),
+                None,
+            )
             .await
     }
 

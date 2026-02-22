@@ -112,7 +112,12 @@ fn secret_path_rejects_leading_slash() {
 fn retryable_variants_are_retryable() {
     assert!(VaultError::Sealed.is_retryable());
     assert!(VaultError::RateLimited { retry_after: None }.is_retryable());
-    assert!(VaultError::RateLimited { retry_after: Some(5) }.is_retryable());
+    assert!(
+        VaultError::RateLimited {
+            retry_after: Some(5)
+        }
+        .is_retryable()
+    );
     assert!(VaultError::ConsistencyRetry.is_retryable());
 }
 
@@ -157,23 +162,41 @@ fn auth_error_classification() {
     assert!(VaultError::AuthRequired.is_auth_error());
     assert!(!VaultError::Sealed.is_auth_error());
     // Api 403 is NOT an auth error — it goes through the dedicated variant
-    assert!(!VaultError::Api { status: 403, errors: vec![] }.is_auth_error());
+    assert!(
+        !VaultError::Api {
+            status: 403,
+            errors: vec![]
+        }
+        .is_auth_error()
+    );
 }
 
 #[test]
 fn status_code_for_dedicated_variants() {
     assert_eq!(VaultError::Sealed.status_code(), Some(503));
-    assert_eq!(VaultError::RateLimited { retry_after: None }.status_code(), Some(429));
+    assert_eq!(
+        VaultError::RateLimited { retry_after: None }.status_code(),
+        Some(429)
+    );
     assert_eq!(VaultError::ConsistencyRetry.status_code(), Some(412));
-    assert_eq!(VaultError::NotFound { path: "x".into() }.status_code(), Some(404));
-    assert_eq!(VaultError::PermissionDenied { errors: vec![] }.status_code(), Some(403));
+    assert_eq!(
+        VaultError::NotFound { path: "x".into() }.status_code(),
+        Some(404)
+    );
+    assert_eq!(
+        VaultError::PermissionDenied { errors: vec![] }.status_code(),
+        Some(403)
+    );
     assert_eq!(VaultError::EmptyResponse.status_code(), None);
     assert_eq!(VaultError::LockPoisoned.status_code(), None);
 }
 
 #[test]
 fn error_display_includes_details() {
-    let err = VaultError::Api { status: 400, errors: vec!["bad request".into()] };
+    let err = VaultError::Api {
+        status: 400,
+        errors: vec!["bad request".into()],
+    };
     let msg = err.to_string();
     assert!(msg.contains("400"));
     assert!(msg.contains("bad request"));

@@ -233,3 +233,43 @@ pub struct PkiTidyStatus {
     pub cert_store_deleted_count: Option<u64>,
     pub revoked_cert_deleted_count: Option<u64>,
 }
+
+// --- Issuer update ---
+
+#[derive(Debug, Serialize, Default, Clone)]
+pub struct PkiIssuerUpdateParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issuer_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub leaf_not_after_behavior: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manual_chain: Option<Vec<String>>,
+}
+
+// --- Cross-signing ---
+
+#[derive(Debug, Serialize, Default, Clone)]
+pub struct PkiCrossSignRequest {
+    pub common_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_bits: Option<u32>,
+}
+
+// --- ACME (Vault 1.14+) ---
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct PkiAcmeConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_issuers: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_roles: Vec<String>,
+    pub default_directory_policy: Option<String>,
+    pub dns_resolver: Option<String>,
+    pub eab_policy: Option<String>,
+}

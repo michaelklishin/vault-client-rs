@@ -51,7 +51,11 @@ async fn kv1_write_posts_to_correct_path() {
     let mut data = HashMap::new();
     data.insert("username", "admin");
     data.insert("password", "s3cret");
-    client.kv1("secret").write("my-secret", &data).await.unwrap();
+    client
+        .kv1("secret")
+        .write("my-secret", &data)
+        .await
+        .unwrap();
 }
 
 // ---------------------------------------------------------------------------

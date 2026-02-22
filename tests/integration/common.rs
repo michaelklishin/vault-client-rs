@@ -2,8 +2,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use secrecy::SecretString;
 
-use vault_client_rs::types::sys::*;
 use vault_client_rs::VaultClient;
+use vault_client_rs::types::sys::*;
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -19,9 +19,7 @@ pub fn vault_addr() -> String {
 }
 
 pub fn vault_token() -> SecretString {
-    SecretString::new(
-        std::env::var("VAULT_TOKEN").unwrap_or_else(|_| "myroot".to_string()),
-    )
+    SecretString::new(std::env::var("VAULT_TOKEN").unwrap_or_else(|_| "myroot".to_string()))
 }
 
 pub fn build_client() -> VaultClient {

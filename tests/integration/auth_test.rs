@@ -106,7 +106,12 @@ async fn token_lookup() {
     assert!(info.policies.contains(&"default".to_string()));
     assert_eq!(info.token_type, "service");
 
-    client.auth().token().revoke(&auth.client_token).await.unwrap();
+    client
+        .auth()
+        .token()
+        .revoke(&auth.client_token)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -122,7 +127,12 @@ async fn token_create_orphan() {
     assert!(auth.orphan);
     assert!(!auth.client_token.expose_secret().is_empty());
 
-    client.auth().token().revoke(&auth.client_token).await.unwrap();
+    client
+        .auth()
+        .token()
+        .revoke(&auth.client_token)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -188,7 +198,12 @@ async fn token_renew_self() {
     assert!(renewed.renewable);
     assert!(!renewed.client_token.expose_secret().is_empty());
 
-    client.auth().token().revoke(&auth.client_token).await.unwrap();
+    client
+        .auth()
+        .token()
+        .revoke(&auth.client_token)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -376,7 +391,10 @@ async fn k8s_role_crud() {
     .unwrap();
 
     let info = k8s.read_role(&role).await.unwrap();
-    assert!(info.bound_service_account_names.contains(&"default".to_string()));
+    assert!(
+        info.bound_service_account_names
+            .contains(&"default".to_string())
+    );
 
     let roles = k8s.list_roles().await.unwrap();
     assert!(roles.contains(&role));

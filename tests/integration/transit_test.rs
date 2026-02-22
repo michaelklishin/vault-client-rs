@@ -8,7 +8,11 @@ use vault_client_rs::{TransitOperations, VaultClient};
 use crate::common::*;
 
 /// Helper: ensure transit engine is mounted and create a named key, returning the key name.
-async fn create_transit_key(client: &VaultClient, prefix: &str, params: &TransitKeyParams) -> String {
+async fn create_transit_key(
+    client: &VaultClient,
+    prefix: &str,
+    params: &TransitKeyParams,
+) -> String {
     ensure_mount(client, "transit", "transit").await;
     let name = unique_name(prefix);
     client
@@ -199,17 +203,11 @@ async fn sign_verify_ecdsa() {
         .unwrap();
     assert!(sig.starts_with("vault:v1:"));
 
-    let valid = transit
-        .verify(&name, b"test message", &sig)
-        .await
-        .unwrap();
+    let valid = transit.verify(&name, b"test message", &sig).await.unwrap();
     assert!(valid);
 
     // Tampered message should fail
-    let invalid = transit
-        .verify(&name, b"wrong message", &sig)
-        .await
-        .unwrap();
+    let invalid = transit.verify(&name, b"wrong message", &sig).await.unwrap();
     assert!(!invalid);
 
     cleanup_key(&client, &name).await;
@@ -254,10 +252,7 @@ async fn hmac() {
     let name = create_transit_key(&client, "hmac", &TransitKeyParams::default()).await;
     let transit = client.transit("transit");
 
-    let result = transit
-        .hmac(&name, b"hmac me", "sha2-256")
-        .await
-        .unwrap();
+    let result = transit.hmac(&name, b"hmac me", "sha2-256").await.unwrap();
     assert!(result.starts_with("vault:v1:"));
 
     cleanup_key(&client, &name).await;
@@ -310,7 +305,10 @@ async fn export_key() {
     .await;
     let transit = client.transit("transit");
 
-    let exported = transit.export_key(&name, "encryption-key", None).await.unwrap();
+    let exported = transit
+        .export_key(&name, "encryption-key", None)
+        .await
+        .unwrap();
     assert_eq!(exported.name, name);
     assert!(!exported.keys.is_empty());
 
