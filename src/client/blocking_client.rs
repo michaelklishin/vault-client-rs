@@ -1,0 +1,139 @@
+use std::time::Duration;
+
+use secrecy::SecretString;
+
+use crate::types::error::VaultError;
+
+/// Blocking Vault client. Wraps the async client with an internal Tokio runtime.
+pub struct BlockingVaultClient {
+    pub(crate) inner: super::VaultClient,
+    pub(crate) rt: tokio::runtime::Runtime,
+}
+
+impl std::fmt::Debug for BlockingVaultClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BlockingVaultClient")
+            .field("inner", &self.inner)
+            .finish_non_exhaustive()
+    }
+}
+
+const _: () = {
+    fn _assert_send_sync<T: Send + Sync>() {}
+    fn _assert() {
+        _assert_send_sync::<BlockingVaultClient>();
+    }
+};
+
+impl BlockingVaultClient {
+    pub fn builder() -> BlockingClientBuilder {
+        BlockingClientBuilder(super::ClientBuilder::default())
+    }
+
+    pub fn set_token(&self, token: SecretString) -> Result<(), VaultError> {
+        self.inner.set_token(token)
+    }
+
+    /// Return a client view with a different namespace. Cheap (Arc clone).
+    pub fn with_namespace(&self, ns: &str) -> Self {
+        BlockingVaultClient {
+            inner: self.inner.with_namespace(ns),
+            rt: tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("failed to create tokio runtime"),
+        }
+    }
+
+    /// Return a client view with a different wrap TTL. Cheap (Arc clone).
+    pub fn with_wrap_ttl(&self, ttl: &str) -> Self {
+        BlockingVaultClient {
+            inner: self.inner.with_wrap_ttl(ttl),
+            rt: tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("failed to create tokio runtime"),
+        }
+    }
+}
+
+#[must_use]
+pub struct BlockingClientBuilder(super::ClientBuilder);
+
+impl BlockingClientBuilder {
+    pub fn address(mut self, addr: &str) -> Self {
+        self.0 = self.0.address(addr);
+        self
+    }
+
+    pub fn token(mut self, token: SecretString) -> Self {
+        self.0 = self.0.token(token);
+        self
+    }
+
+    pub fn namespace(mut self, ns: &str) -> Self {
+        self.0 = self.0.namespace(ns);
+        self
+    }
+
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.0 = self.0.timeout(timeout);
+        self
+    }
+
+    pub fn max_retries(mut self, n: u32) -> Self {
+        self.0 = self.0.max_retries(n);
+        self
+    }
+
+    pub fn initial_retry_delay(mut self, d: Duration) -> Self {
+        self.0 = self.0.initial_retry_delay(d);
+        self
+    }
+
+    pub fn wrap_ttl(mut self, ttl: &str) -> Self {
+        self.0 = self.0.wrap_ttl(ttl);
+        self
+    }
+
+    pub fn forward_to_leader(mut self, yes: bool) -> Self {
+        self.0 = self.0.forward_to_leader(yes);
+        self
+    }
+
+    pub fn danger_disable_tls_verify(mut self, yes: bool) -> Self {
+        self.0 = self.0.danger_disable_tls_verify(yes);
+        self
+    }
+
+    pub fn ca_cert_pem(mut self, pem: impl Into<Vec<u8>>) -> Self {
+        self.0 = self.0.ca_cert_pem(pem);
+        self
+    }
+
+    pub fn client_cert_pem(mut self, cert: impl Into<Vec<u8>>, key: impl Into<Vec<u8>>) -> Self {
+        self.0 = self.0.client_cert_pem(cert, key);
+        self
+    }
+
+    pub fn with_reqwest_client(mut self, client: reqwest::Client) -> Self {
+        self.0 = self.0.with_reqwest_client(client);
+        self
+    }
+
+    pub fn build(self) -> Result<BlockingVaultClient, VaultError> {
+        if tokio::runtime::Handle::try_current().is_ok() {
+            return Err(VaultError::Config(
+                "BlockingVaultClient cannot be created inside a tokio runtime; \
+                 use the async VaultClient instead"
+                    .into(),
+            ));
+        }
+        let inner = self.0.build()?;
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| VaultError::Config(format!("tokio runtime: {e}")))?;
+        Ok(BlockingVaultClient { inner, rt })
+    }
+}
