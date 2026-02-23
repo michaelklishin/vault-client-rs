@@ -8,9 +8,9 @@ See also [AGENTS.md](./AGENTS.md) for codebase conventions.
 
 Tests are organized into three directories under `crates/vault-client-rs/tests/`:
 
- * `tests/unit/`: unit tests with no external dependencies
- * `tests/mock/`: mock tests using wiremock — no Vault needed
- * `tests/integration/`: integration tests that require a running Vault node
+ * `tests/unit`: unit tests with no external dependencies
+ * `tests/mock`: mock tests using wiremock — no Vault needed
+ * `tests/integration`: integration tests that require a running Vault node
 
 ### Prerequisites
 
