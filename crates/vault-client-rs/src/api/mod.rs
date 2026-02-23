@@ -1,0 +1,20 @@
+pub mod auth;
+pub mod aws;
+pub mod azure;
+pub mod cubbyhole;
+pub mod database;
+pub mod gcp;
+pub mod identity;
+pub mod kv1;
+pub mod kv2;
+pub mod pki;
+pub mod ssh;
+pub mod sys;
+pub mod traits;
+pub mod transit;
+
+pub mod consul;
+pub mod nomad;
+pub mod rabbitmq;
+pub mod terraform;
+pub mod totp;

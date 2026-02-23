@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - ".github/workflows/ci.yaml"
+      - ".config/nextest.toml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/**"
+  pull_request: {}
+
+env:
+  RUSTFLAGS: -D warnings
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    name: Lint
+    strategy:
+      matrix:
+        rust-version: [stable, beta]
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust-version }}
+          components: rustfmt, clippy
+
+      - name: Lint (clippy)
+        run: cargo clippy --all-features --workspace
+
+      - name: Lint (rustfmt)
+        run: cargo fmt --all --check
+
+  test:
+    name: Test
+    strategy:
+      matrix:
+        vault-version: ["1.18"]
+        rust-version: [stable, beta]
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+
+    services:
+      vault:
+        image: hashicorp/vault:${{ matrix.vault-version }}
+        ports:
+          - 8200:8200
+        env:
+          VAULT_DEV_ROOT_TOKEN_ID: myroot
+          VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+
+    env:
+      VAULT_ADDR: http://127.0.0.1:8200
+      VAULT_TOKEN: myroot
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust-version }}
+
+      - uses: taiki-e/install-action@nextest
+
+      - name: Wait for Vault to become ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8200/v1/sys/health; then
+              echo "Vault is ready"
+              exit 0
+            fi
+            echo "Waiting for Vault... ($i/30)"
+            sleep 1
+          done
+          echo "Vault failed to start. Container logs:"
+          docker logs ${{ job.services.vault.id }}
+          exit 1
+
+      - name: Run all tests
+        run: RUST_BACKTRACE=1 cargo nextest run --all-features --workspace --no-fail-fast

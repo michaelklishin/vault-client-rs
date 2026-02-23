@@ -1,0 +1,22 @@
+pub mod auth;
+pub mod aws;
+pub mod azure;
+pub mod database;
+pub mod error;
+pub mod gcp;
+pub mod identity;
+pub mod kv;
+pub mod pki;
+pub mod redaction;
+pub mod response;
+pub mod secret;
+pub(crate) mod serde_secret;
+pub mod ssh;
+pub mod sys;
+pub mod transit;
+
+pub mod consul;
+pub mod nomad;
+pub mod rabbitmq;
+pub mod terraform;
+pub mod totp;

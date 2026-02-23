@@ -1,0 +1,16 @@
+[package]
+name = "vault-client-rs-test"
+description = "Test utilities for vault-client-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vault-client-rs = { version = "0.6.0", path = "../vault-client-rs" }
+wiremock = "0.6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+secrecy = { version = "0.10", features = ["serde"] }
+tokio = { version = "1", features = ["rt", "time"] }
