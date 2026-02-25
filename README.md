@@ -24,19 +24,19 @@ This library is young. Before `1.0`, breaking API changes likely, including majo
 ## Dependency
 
 ```toml
-vault-client-rs = "0.6"
+vault-client-rs = "0.7"
 ```
 
 ### With Blocking Client
 
 ```toml
-vault-client-rs = { version = "0.6", features = ["blocking"] }
+vault-client-rs = { version = "0.7", features = ["blocking"] }
 ```
 
 ### With Automatic Token Renewal
 
 ```toml
-vault-client-rs = { version = "0.6", features = ["auto-renew"] }
+vault-client-rs = { version = "0.7", features = ["auto-renew"] }
 ```
 
 
@@ -62,9 +62,39 @@ let client = VaultClient::builder()
     .build()?;
 ```
 
+### Circuit Breaker
+
+Circuit Breaking is a feature that monitors consecutive failures and short-circuits (avoids)
+subsequent requests until a certain period of time passes:
+
+```rust
+use vault_client_rs::{VaultClient, CircuitBreakerConfig};
+
+let client = VaultClient::builder()
+    .address("https://vault.example.com:8200")
+    .token_str("hvs.EXAMPLE")
+    .circuit_breaker(CircuitBreakerConfig::default())
+    .build()?;
+```
+
+### CLI Mode
+
+For short-lived sessions in CLI tools, `cli_mode` disables retries and sealed-Vault retry loops:
+
+```rust
+use vault_client_rs::VaultClient;
+
+let client = VaultClient::builder()
+    .address("https://vault.example.com:8200")
+    .token_str("hvs.EXAMPLE")
+    .cli_mode(true)
+    .build()?;
+```
+
 ### From Environment Variables
 
-To instantiate a client using the values of the `VAULT_ADDR` and `VAULT_TOKEN` environment variables:
+Reads `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, and other `VAULT_*` variables.
+When `VAULT_TOKEN` is not set, falls back to `~/.vault-token` (written by `vault login`):
 
 ```rust
 use vault_client_rs::VaultClient;
@@ -83,7 +113,7 @@ kv.write("myapp/config", &serde_json::json!({
     "db_port": "5432"
 })).await?;
 
-// Read into a typed struct or HashMap
+// Read into a typed struct or a HashMap
 let data: HashMap<String, String> = kv.read_data("myapp/config").await?;
 
 // Read a single field
@@ -118,6 +148,21 @@ kv.write_cas("myapp/config", &new_data, 3).await?;
 
 // Patch (merge fields into existing secret)
 kv.patch("myapp/config", &serde_json::json!({"new_field": "value"})).await?;
+```
+
+### KV v1 Secrets
+
+```rust
+let kv = client.kv1("secret");
+
+// Read into a typed struct or a HashMap
+let data: HashMap<String, String> = kv.read_data("myapp/config").await?;
+
+// Read a single field
+let host: String = kv.read_field("myapp/config", "db_host").await?;
+
+// Write, list, delete work the same way as in the KV v2 interface
+kv.write("myapp/config", &serde_json::json!({"db_host": "db.internal"})).await?;
 ```
 
 ### Transit Encryption
