@@ -1,6 +1,6 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use secrecy::SecretString;
 use tracing_subscriber::layer::SubscriberExt;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -49,12 +49,12 @@ async fn execute_raw_emits_vault_request_span() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("test-token"))
+        .token_str("test-token")
         .max_retries(0)
         .build()
         .unwrap();
 
-    let _: std::collections::HashMap<String, String> =
+    let _: HashMap<String, String> =
         client.kv1("secret").read("my-key").await.unwrap();
 
     let captured = spans.lock().unwrap();

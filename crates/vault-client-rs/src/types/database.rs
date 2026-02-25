@@ -1,3 +1,5 @@
+use std::fmt;
+
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -141,8 +143,8 @@ impl From<(&str, &str)> for DatabaseCredentials {
     }
 }
 
-impl std::fmt::Debug for DatabaseCredentials {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for DatabaseCredentials {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DatabaseCredentials")
             .field("username", &redact(self.username.expose_secret()))
             .field("password", &redact(self.password.expose_secret()))
@@ -172,8 +174,8 @@ impl Clone for DatabaseStaticCredentials {
     }
 }
 
-impl std::fmt::Debug for DatabaseStaticCredentials {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for DatabaseStaticCredentials {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DatabaseStaticCredentials")
             .field("username", &redact(self.username.expose_secret()))
             .field("password", &redact(self.password.expose_secret()))

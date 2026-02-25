@@ -243,7 +243,11 @@ impl Kv2Handler<'_> {
         Kv2Operations::patch(self, path, &body).await
     }
 
-    /// Write a single field to a KV2 secret (replaces all fields, not a patch)
+    /// Write a single field to a KV2 secret
+    ///
+    /// The entire secret is overwritten with only the provided field: all
+    /// other fields in the current version are discarded. Use `patch` to
+    /// merge a partial update while preserving existing fields
     pub async fn write_field(
         &self,
         path: &str,
@@ -255,7 +259,7 @@ impl Kv2Handler<'_> {
     }
 
     pub async fn read_data<T: DeserializeOwned + Send>(&self, path: &str) -> Result<T, VaultError> {
-        self.read(path).await.map(|r| r.data)
+        Kv2Operations::read_data(self, path).await
     }
 
     /// Read a single field from a KV2 secret, stringified
@@ -271,12 +275,18 @@ impl Kv2Handler<'_> {
                 other => other.to_string(),
             })
             .ok_or_else(|| VaultError::FieldNotFound {
+                mount: self.mount.clone(),
                 path: path.to_string(),
                 field: field.to_string(),
             })
     }
 
-    /// Read all fields from a KV2 secret as String key-value pairs
+    /// Read all fields from a KV2 secret as `String` key-value pairs
+    ///
+    /// Every value in the secret must be a JSON string; numeric or boolean
+    /// values cause a `VaultError::Deserialize` error. Use `read_field` to
+    /// extract a single field regardless of its JSON type, or `read_data` to
+    /// deserialize into a typed struct
     pub async fn read_string_data(
         &self,
         path: &str,

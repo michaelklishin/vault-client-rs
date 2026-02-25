@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use vault_client_rs::Kv1Operations;
+use vault_client_rs::{Kv1Operations, VaultClient};
 
 use crate::common::*;
 
-fn client() -> vault_client_rs::VaultClient {
+fn client() -> VaultClient {
     build_client(&vault_addr(), vault_token())
 }
 

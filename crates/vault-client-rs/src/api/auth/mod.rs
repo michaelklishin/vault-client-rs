@@ -13,6 +13,7 @@ pub mod token;
 pub mod userpass;
 
 use std::future::Future;
+use std::pin::Pin;
 
 use crate::VaultClient;
 use crate::api::traits::{
@@ -225,14 +226,14 @@ pub(crate) trait AuthMethodDyn: Send + Sync {
     fn login_dyn<'a>(
         &'a self,
         client: &'a VaultClient,
-    ) -> std::pin::Pin<Box<dyn Future<Output = Result<AuthInfo, VaultError>> + Send + 'a>>;
+    ) -> Pin<Box<dyn Future<Output = Result<AuthInfo, VaultError>> + Send + 'a>>;
 }
 
 impl<T: AuthMethod> AuthMethodDyn for T {
     fn login_dyn<'a>(
         &'a self,
         client: &'a VaultClient,
-    ) -> std::pin::Pin<Box<dyn Future<Output = Result<AuthInfo, VaultError>> + Send + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = Result<AuthInfo, VaultError>> + Send + 'a>> {
         Box::pin(self.login(client))
     }
 }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use secrecy::{ExposeSecret, SecretString};
 use wiremock::matchers::{body_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -5,7 +7,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 use crate::common::build_test_client;
 use vault_client_rs::types::auth::*;
 use vault_client_rs::{
-    AppRoleAuthOperations, K8sAuthOperations, Kv2Operations, TokenAuthOperations,
+    AppRoleAuthOperations, K8sAuthOperations, KvReadResponse, Kv2Operations, TokenAuthOperations,
 };
 
 fn auth_response_json() -> serde_json::Value {
@@ -692,7 +694,7 @@ async fn approle_login_updates_internal_token() {
         .unwrap();
 
     // This request should use the new token "s.newtoken"
-    let resp: vault_client_rs::KvReadResponse<std::collections::HashMap<String, String>> =
+    let resp: KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("test").await.unwrap();
     assert_eq!(resp.data["verified"], "true");
 }
@@ -730,7 +732,7 @@ async fn k8s_login_updates_internal_token() {
         .await
         .unwrap();
 
-    let resp: vault_client_rs::KvReadResponse<std::collections::HashMap<String, String>> =
+    let resp: KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("after-k8s").await.unwrap();
     assert_eq!(resp.data["ok"], "yes");
 }

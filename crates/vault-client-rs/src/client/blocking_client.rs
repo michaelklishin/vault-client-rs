@@ -1,17 +1,21 @@
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
 use secrecy::SecretString;
 
+use crate::api::auth::AuthMethod;
+use crate::circuit_breaker::CircuitBreakerConfig;
 use crate::types::error::VaultError;
+use crate::types::response::AuthInfo;
 
 pub struct BlockingVaultClient {
     pub(crate) inner: super::VaultClient,
     pub(crate) rt: Arc<tokio::runtime::Runtime>,
 }
 
-impl std::fmt::Debug for BlockingVaultClient {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for BlockingVaultClient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("BlockingVaultClient")
             .field("inner", &self.inner)
             .finish_non_exhaustive()
@@ -33,9 +37,10 @@ impl BlockingVaultClient {
         Self::builder().address(address).token_str(token).build()
     }
 
-    /// Create a client from `VAULT_ADDR` and `VAULT_TOKEN` environment variables
+    /// Create a client from `VAULT_*` environment variables;
+    /// token resolution order: `VAULT_TOKEN` → `~/.vault-token` → `None`
     pub fn from_env() -> Result<Self, VaultError> {
-        BlockingClientBuilder(super::ClientBuilder::from_env()).build()
+        BlockingClientBuilder::from_env().build()
     }
 
     pub fn builder() -> BlockingClientBuilder {
@@ -69,6 +74,12 @@ impl BlockingVaultClient {
 pub struct BlockingClientBuilder(super::ClientBuilder);
 
 impl BlockingClientBuilder {
+    /// Pre-populate the builder from `VAULT_*` environment variables;
+    /// token resolution order: `VAULT_TOKEN` → `~/.vault-token` → `None`
+    pub fn from_env() -> Self {
+        BlockingClientBuilder(super::ClientBuilder::from_env())
+    }
+
     pub fn address(mut self, addr: &str) -> Self {
         self.0 = self.0.address(addr);
         self
@@ -113,6 +124,11 @@ impl BlockingClientBuilder {
         self
     }
 
+    pub fn cli_mode(mut self, yes: bool) -> Self {
+        self.0 = self.0.cli_mode(yes);
+        self
+    }
+
     pub fn danger_disable_tls_verify(mut self, yes: bool) -> Self {
         self.0 = self.0.danger_disable_tls_verify(yes);
         self
@@ -128,13 +144,13 @@ impl BlockingClientBuilder {
         self
     }
 
-    pub fn auth_method(mut self, method: impl crate::api::auth::AuthMethod + 'static) -> Self {
+    pub fn auth_method(mut self, method: impl AuthMethod + 'static) -> Self {
         self.0 = self.0.auth_method(method);
         self
     }
 
     /// Enable the circuit breaker with the given configuration
-    pub fn circuit_breaker(mut self, config: crate::circuit_breaker::CircuitBreakerConfig) -> Self {
+    pub fn circuit_breaker(mut self, config: CircuitBreakerConfig) -> Self {
         self.0 = self.0.circuit_breaker(config);
         self
     }
@@ -142,7 +158,7 @@ impl BlockingClientBuilder {
     /// Register a callback invoked whenever the client's token changes
     pub fn on_token_changed(
         mut self,
-        f: impl Fn(&crate::types::response::AuthInfo) + Send + Sync + 'static,
+        f: impl Fn(&AuthInfo) + Send + Sync + 'static,
     ) -> Self {
         self.0 = self.0.on_token_changed(f);
         self
@@ -156,8 +172,11 @@ impl BlockingClientBuilder {
     pub fn build(self) -> Result<BlockingVaultClient, VaultError> {
         if tokio::runtime::Handle::try_current().is_ok() {
             return Err(VaultError::Config(
-                "BlockingVaultClient cannot be created inside a tokio runtime; \
-                 use the async VaultClient instead"
+                "BlockingVaultClient cannot be created inside a Tokio runtime. \
+                 Reason: BlockingVaultClient spawns its own single-threaded Tokio runtime, \
+                 and nested runtimes are not supported. \
+                 Fix: use VaultClient (async) with .await, or call \
+                 BlockingVaultClient::new() from a std::thread outside the existing runtime."
                     .into(),
             ));
         }

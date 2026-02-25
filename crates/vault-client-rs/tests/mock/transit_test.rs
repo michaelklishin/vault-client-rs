@@ -3,8 +3,8 @@ use wiremock::matchers::{body_json, body_partial_json, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::common::build_test_client;
-use vault_client_rs::TransitOperations;
 use vault_client_rs::types::transit::*;
+use vault_client_rs::{TransitOperations, VaultError};
 
 #[tokio::test]
 async fn create_key_posts_to_correct_path() {
@@ -753,7 +753,7 @@ async fn decrypt_invalid_base64_returns_error() {
         .await
         .unwrap_err();
     match err {
-        vault_client_rs::VaultError::Config(msg) => {
+        VaultError::Config(msg) => {
             assert!(msg.contains("base64"), "expected base64 error, got: {msg}");
         }
         other => panic!("expected Config error, got: {other:?}"),

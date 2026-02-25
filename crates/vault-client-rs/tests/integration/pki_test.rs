@@ -1,5 +1,7 @@
+use std::time::Duration;
+
 use vault_client_rs::types::pki::*;
-use vault_client_rs::{PkiOperations, VaultClient};
+use vault_client_rs::{PkiOperations, VaultClient, VaultError};
 
 use crate::common::*;
 
@@ -201,7 +203,7 @@ async fn rotate_crl() {
     let result = client.pki(&fixture.mount).rotate_crl().await;
     match &result {
         Ok(()) => {}
-        Err(vault_client_rs::VaultError::Api { status: 405, .. }) => {}
+        Err(VaultError::Api { status: 405, .. }) => {}
         Err(e) => panic!("unexpected error: {e}"),
     }
 
@@ -245,7 +247,7 @@ async fn tidy_and_status() {
     .unwrap();
 
     // Give tidy a moment to start
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
 
     let status = pki.tidy_status().await.unwrap();
     // State should be one of: Inactive, Running, Finished, Error

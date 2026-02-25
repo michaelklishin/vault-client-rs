@@ -4,6 +4,9 @@ use secrecy::SecretString;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
+use vault_client_rs::blocking::VaultClient as BlockingVaultClient;
+use vault_client_rs::{KvReadResponse, VaultError};
+
 fn kv2_response(data: serde_json::Value) -> serde_json::Value {
     serde_json::json!({
         "data": {
@@ -19,13 +22,22 @@ fn kv2_response(data: serde_json::Value) -> serde_json::Value {
 }
 
 #[test]
+fn blocking_new_builds_successfully() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let server = rt.block_on(MockServer::start());
+
+    let client = BlockingVaultClient::new(&server.uri(), "my-token");
+    assert!(client.is_ok(), "BlockingVaultClient::new() should succeed: {client:?}");
+}
+
+#[test]
 fn blocking_builder_works() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let server = rt.block_on(MockServer::start());
 
-    let client = vault_client_rs::blocking::VaultClient::builder()
+    let client = BlockingVaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(0)
         .build();
     assert!(client.is_ok());
@@ -48,14 +60,14 @@ fn blocking_kv2_read() {
             .await;
     });
 
-    let client = vault_client_rs::blocking::VaultClient::builder()
+    let client = BlockingVaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("test-token"))
+        .token_str("test-token")
         .max_retries(0)
         .build()
         .unwrap();
 
-    let resp: vault_client_rs::KvReadResponse<HashMap<String, String>> =
+    let resp: KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("key").unwrap();
     assert_eq!(resp.data["foo"], "bar");
 }
@@ -76,9 +88,9 @@ fn blocking_kv2_list() {
             .await;
     });
 
-    let client = vault_client_rs::blocking::VaultClient::builder()
+    let client = BlockingVaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(0)
         .build()
         .unwrap();
@@ -108,9 +120,9 @@ fn blocking_kv2_write() {
             .await;
     });
 
-    let client = vault_client_rs::blocking::VaultClient::builder()
+    let client = BlockingVaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(0)
         .build()
         .unwrap();
@@ -141,9 +153,9 @@ fn blocking_sys_health() {
             .await;
     });
 
-    let client = vault_client_rs::blocking::VaultClient::builder()
+    let client = BlockingVaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(0)
         .build()
         .unwrap();
@@ -170,15 +182,15 @@ fn blocking_set_token() {
             .await;
     });
 
-    let client = vault_client_rs::blocking::VaultClient::builder()
+    let client = BlockingVaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("initial"))
+        .token_str("initial")
         .max_retries(0)
         .build()
         .unwrap();
 
     client.set_token(SecretString::from("updated")).unwrap();
-    let _: vault_client_rs::KvReadResponse<HashMap<String, String>> =
+    let _: KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("key").unwrap();
 }
 
@@ -198,9 +210,9 @@ fn blocking_transit_encrypt() {
             .await;
     });
 
-    let client = vault_client_rs::blocking::VaultClient::builder()
+    let client = BlockingVaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(0)
         .build()
         .unwrap();
@@ -246,9 +258,9 @@ fn blocking_auth_token_lookup_self() {
             .await;
     });
 
-    let client = vault_client_rs::blocking::VaultClient::builder()
+    let client = BlockingVaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(0)
         .build()
         .unwrap();
@@ -260,16 +272,16 @@ fn blocking_auth_token_lookup_self() {
 #[tokio::test]
 async fn blocking_builder_rejects_inside_async_runtime() {
     // Calling BlockingClientBuilder::build() inside a tokio runtime should fail
-    let err = vault_client_rs::blocking::VaultClient::builder()
+    let err = BlockingVaultClient::builder()
         .address("http://127.0.0.1:8200")
-        .token(SecretString::from("t"))
+        .token_str("t")
         .build()
         .unwrap_err();
     match err {
-        vault_client_rs::VaultError::Config(msg) => {
+        VaultError::Config(msg) => {
             assert!(
-                msg.contains("tokio runtime"),
-                "expected tokio runtime error, got: {msg}"
+                msg.contains("nested"),
+                "expected nested runtime error, got: {msg}"
             );
         }
         other => panic!("expected Config error, got: {other:?}"),

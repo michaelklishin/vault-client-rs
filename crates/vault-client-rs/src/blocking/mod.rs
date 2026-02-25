@@ -26,7 +26,7 @@ use crate::types::kv::*;
 use crate::types::nomad::*;
 use crate::types::pki::*;
 use crate::types::rabbitmq::*;
-use crate::types::response::{AuthInfo, WrapInfo};
+use crate::types::response::{AuthInfo, VaultResponse, WrapInfo};
 use crate::types::ssh::*;
 use crate::types::sys::*;
 use crate::types::terraform::*;
@@ -199,7 +199,7 @@ impl BlockingVaultClient {
     pub fn read_raw(
         &self,
         path: &str,
-    ) -> Result<crate::types::response::VaultResponse<serde_json::Value>, VaultError> {
+    ) -> Result<VaultResponse<serde_json::Value>, VaultError> {
         self.rt.block_on(self.inner.read_raw(path))
     }
 
@@ -207,7 +207,7 @@ impl BlockingVaultClient {
         &self,
         path: &str,
         data: &impl Serialize,
-    ) -> Result<crate::types::response::VaultResponse<T>, VaultError> {
+    ) -> Result<VaultResponse<T>, VaultError> {
         self.rt.block_on(self.inner.write(path, data))
     }
 

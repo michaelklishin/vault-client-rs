@@ -4,7 +4,7 @@ use wiremock::matchers::{body_json, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::common::build_test_client;
-use vault_client_rs::{Kv2Operations, KvConfig, KvMetadataParams};
+use vault_client_rs::{Kv2Operations, KvConfig, KvMetadataParams, KvReadResponse};
 
 fn kv_metadata_json() -> serde_json::Value {
     serde_json::json!({
@@ -45,7 +45,7 @@ async fn kv2_read_returns_data_and_metadata() {
         .await;
 
     let client = build_test_client(&server).await;
-    let resp: vault_client_rs::KvReadResponse<HashMap<String, String>> =
+    let resp: KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("myapp/config").await.unwrap();
     assert_eq!(resp.data["db_host"], "db.internal");
     assert_eq!(resp.data["db_port"], "5432");

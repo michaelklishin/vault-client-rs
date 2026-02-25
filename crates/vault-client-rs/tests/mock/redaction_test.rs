@@ -1,4 +1,4 @@
-use vault_client_rs::{RedactionLevel, redact, redaction_level, set_redaction_level};
+use vault_client_rs::{RabbitmqCredentials, RedactionLevel, redact, redaction_level, set_redaction_level};
 
 #[test]
 fn default_level_is_full() {
@@ -47,8 +47,6 @@ fn level_roundtrips() {
 
 #[test]
 fn debug_output_respects_redaction_level() {
-    use vault_client_rs::RabbitmqCredentials;
-
     let creds: RabbitmqCredentials = ("guest", "hunter2").into();
 
     set_redaction_level(RedactionLevel::Full);

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -80,8 +82,8 @@ impl Clone for SshSignedKey {
     }
 }
 
-impl std::fmt::Debug for SshSignedKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for SshSignedKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SshSignedKey")
             .field("serial_number", &self.serial_number)
             .field("signed_key", &redact(self.signed_key.expose_secret()))

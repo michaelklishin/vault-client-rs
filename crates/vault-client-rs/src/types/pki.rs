@@ -1,3 +1,5 @@
+use std::fmt;
+
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -54,8 +56,8 @@ impl Clone for PkiCertificate {
     }
 }
 
-impl std::fmt::Debug for PkiCertificate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for PkiCertificate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PkiCertificate")
             .field("certificate", &self.certificate)
             .field("issuing_ca", &self.issuing_ca)
@@ -100,8 +102,8 @@ impl Clone for PkiCsr {
     }
 }
 
-impl std::fmt::Debug for PkiCsr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for PkiCsr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PkiCsr")
             .field("csr", &self.csr)
             .field(
@@ -234,8 +236,8 @@ impl Clone for PkiIssuedCert {
     }
 }
 
-impl std::fmt::Debug for PkiIssuedCert {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for PkiIssuedCert {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PkiIssuedCert")
             .field("certificate", &self.certificate)
             .field("issuing_ca", &self.issuing_ca)

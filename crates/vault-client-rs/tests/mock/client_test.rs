@@ -6,15 +6,25 @@ use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::common::build_test_client;
-use vault_client_rs::{AppRoleAuthOperations, Kv2Operations, TokenAuthOperations, VaultClient};
+use vault_client_rs::{
+    AppRoleAuthOperations, KvReadResponse, Kv2Operations, TokenAuthOperations, VaultClient,
+    VaultError,
+};
+
+#[tokio::test]
+async fn vault_client_new_builds_successfully() {
+    let server = MockServer::start().await;
+    let client = VaultClient::new(&server.uri(), "my-token");
+    assert!(client.is_ok(), "VaultClient::new() should succeed: {client:?}");
+}
 
 #[tokio::test]
 async fn builder_requires_address() {
     let err = VaultClient::builder()
-        .token(SecretString::from("t"))
+        .token_str("t")
         .build()
         .unwrap_err();
-    assert!(matches!(err, vault_client_rs::VaultError::Config(_)));
+    assert!(matches!(err, VaultError::Config(_)));
 }
 
 #[tokio::test]
@@ -22,7 +32,7 @@ async fn builder_accepts_valid_url() {
     let server = MockServer::start().await;
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .build();
     assert!(client.is_ok());
 }
@@ -31,10 +41,10 @@ async fn builder_accepts_valid_url() {
 async fn builder_rejects_invalid_url() {
     let err = VaultClient::builder()
         .address("not a url")
-        .token(SecretString::from("t"))
+        .token_str("t")
         .build()
         .unwrap_err();
-    assert!(matches!(err, vault_client_rs::VaultError::Config(_)));
+    assert!(matches!(err, VaultError::Config(_)));
 }
 
 #[tokio::test]
@@ -56,7 +66,7 @@ async fn token_header_is_injected() {
         .await;
 
     let client = build_test_client(&server).await;
-    let resp: vault_client_rs::KvReadResponse<HashMap<String, String>> =
+    let resp: KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("key").await.unwrap();
     assert_eq!(resp.data["foo"], "bar");
 }
@@ -77,7 +87,7 @@ async fn namespace_header_is_injected() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .namespace("admin/prod")
         .max_retries(0)
         .build()
@@ -109,7 +119,7 @@ async fn wrap_ttl_header_is_sent() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .wrap_ttl("5m")
         .max_retries(0)
         .build()
@@ -140,7 +150,7 @@ async fn set_token_changes_header() {
 
     let client = build_test_client(&server).await;
     client.set_token(SecretString::from("new-token")).unwrap();
-    let _: vault_client_rs::KvReadResponse<HashMap<String, String>> =
+    let _: KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("key").await.unwrap();
 }
 
@@ -168,13 +178,13 @@ async fn retry_on_429_then_succeed() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(3)
         .initial_retry_delay(Duration::from_millis(10))
         .build()
         .unwrap();
 
-    let resp: vault_client_rs::KvReadResponse<HashMap<String, String>> =
+    let resp: KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("key").await.unwrap();
     assert_eq!(resp.data["value"], "success");
 }
@@ -191,7 +201,7 @@ async fn retry_exhausted_returns_error() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(1)
         .initial_retry_delay(Duration::from_millis(1))
         .build()
@@ -202,7 +212,7 @@ async fn retry_exhausted_returns_error() {
         .read::<serde_json::Value>("key")
         .await
         .unwrap_err();
-    assert!(matches!(err, vault_client_rs::VaultError::Sealed));
+    assert!(matches!(err, VaultError::Sealed { .. }));
 }
 
 #[tokio::test]
@@ -231,13 +241,13 @@ async fn sealed_vault_is_retried() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(2)
         .initial_retry_delay(Duration::from_millis(1))
         .build()
         .unwrap();
 
-    let resp: vault_client_rs::KvReadResponse<HashMap<String, String>> =
+    let resp: KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("key").await.unwrap();
     assert_eq!(resp.data["ok"], "yes");
 }
@@ -257,7 +267,7 @@ async fn permission_denied_not_retried() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(3)
         .build()
         .unwrap();
@@ -269,7 +279,7 @@ async fn permission_denied_not_retried() {
         .unwrap_err();
     assert!(matches!(
         err,
-        vault_client_rs::VaultError::PermissionDenied { .. }
+        VaultError::PermissionDenied { .. }
     ));
 }
 
@@ -289,7 +299,7 @@ async fn not_found_returns_error() {
         .read::<serde_json::Value>("missing")
         .await
         .unwrap_err();
-    assert!(matches!(err, vault_client_rs::VaultError::NotFound { .. }));
+    assert!(matches!(err, VaultError::NotFound { .. }));
 }
 
 #[tokio::test]
@@ -327,7 +337,7 @@ async fn concurrent_reads_are_safe() {
         .map(|i| {
             let c = client.clone();
             tokio::spawn(async move {
-                let _: vault_client_rs::KvReadResponse<HashMap<String, String>> =
+                let _: KvReadResponse<HashMap<String, String>> =
                     c.kv2("secret").read(&format!("key/{i}")).await.unwrap();
             })
         })
@@ -379,7 +389,7 @@ async fn unauthorized_returns_api_error() {
         .await
         .unwrap_err();
     assert!(
-        matches!(err, vault_client_rs::VaultError::AuthRequired),
+        matches!(err, VaultError::AuthRequired),
         "expected AuthRequired, got: {err:?}"
     );
 }
@@ -402,7 +412,7 @@ async fn malformed_json_returns_error() {
         .await
         .unwrap_err();
     assert!(
-        matches!(err, vault_client_rs::VaultError::Http(_)),
+        matches!(err, VaultError::Http(_)),
         "expected Http (deser) error, got: {err:?}"
     );
 }
@@ -427,7 +437,7 @@ async fn empty_data_envelope_returns_error() {
         .await
         .unwrap_err();
     assert!(
-        matches!(err, vault_client_rs::VaultError::EmptyResponse),
+        matches!(err, VaultError::EmptyResponse),
         "expected EmptyResponse, got: {err:?}"
     );
 }
@@ -452,7 +462,7 @@ async fn server_error_500_not_retried_when_max_zero() {
         .await
         .unwrap_err();
     match err {
-        vault_client_rs::VaultError::Api { status, errors } => {
+        VaultError::Api { status, errors } => {
             assert_eq!(status, 500);
             assert_eq!(errors, vec!["internal error"]);
         }
@@ -472,7 +482,7 @@ async fn rate_limited_exhaustion() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(1)
         .initial_retry_delay(Duration::from_millis(1))
         .build()
@@ -484,7 +494,7 @@ async fn rate_limited_exhaustion() {
         .await
         .unwrap_err();
     assert!(
-        matches!(err, vault_client_rs::VaultError::RateLimited { .. }),
+        matches!(err, VaultError::RateLimited { .. }),
         "expected RateLimited, got: {err:?}"
     );
 }
@@ -501,7 +511,7 @@ async fn consistency_retry_exhaustion() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(1)
         .initial_retry_delay(Duration::from_millis(1))
         .build()
@@ -513,7 +523,7 @@ async fn consistency_retry_exhaustion() {
         .await
         .unwrap_err();
     assert!(
-        matches!(err, vault_client_rs::VaultError::ConsistencyRetry),
+        matches!(err, VaultError::ConsistencyRetry),
         "expected ConsistencyRetry, got: {err:?}"
     );
 }
@@ -562,13 +572,13 @@ async fn server_500_retried_then_succeeds() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(3)
         .initial_retry_delay(Duration::from_millis(1))
         .build()
         .unwrap();
 
-    let resp: vault_client_rs::KvReadResponse<HashMap<String, String>> =
+    let resp: KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("key").await.unwrap();
     assert_eq!(resp.data["recovered"], "yes");
 }
@@ -613,7 +623,7 @@ async fn forward_to_leader_sends_header() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .forward_to_leader(true)
         .max_retries(0)
         .build()
@@ -635,7 +645,7 @@ async fn rate_limited_with_retry_after_header() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(0)
         .build()
         .unwrap();
@@ -646,7 +656,7 @@ async fn rate_limited_with_retry_after_header() {
         .await
         .unwrap_err();
     match err {
-        vault_client_rs::VaultError::RateLimited { retry_after } => {
+        VaultError::RateLimited { retry_after } => {
             assert_eq!(retry_after, Some(2));
         }
         other => panic!("expected RateLimited, got: {other:?}"),
@@ -673,7 +683,7 @@ async fn bad_request_returns_api_error_with_details() {
         .await
         .unwrap_err();
     match err {
-        vault_client_rs::VaultError::Api { status, errors } => {
+        VaultError::Api { status, errors } => {
             assert_eq!(status, 400);
             assert!(errors[0].contains("check-and-set"));
         }
@@ -694,7 +704,7 @@ async fn not_found_not_retried_even_with_retries() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("t"))
+        .token_str("t")
         .max_retries(3)
         .build()
         .unwrap();
@@ -704,7 +714,7 @@ async fn not_found_not_retried_even_with_retries() {
         .read::<serde_json::Value>("missing")
         .await
         .unwrap_err();
-    assert!(matches!(err, vault_client_rs::VaultError::NotFound { .. }));
+    assert!(matches!(err, VaultError::NotFound { .. }));
 }
 
 #[tokio::test]
@@ -750,7 +760,7 @@ async fn token_renew_self_updates_internal_token() {
     let client = build_test_client(&server).await;
     client.auth().token().renew_self(None).await.unwrap();
 
-    let resp: vault_client_rs::KvReadResponse<HashMap<String, String>> =
+    let resp: KvReadResponse<HashMap<String, String>> =
         client.kv2("secret").read("verify").await.unwrap();
     assert_eq!(resp.data["ok"], "yes");
 }
@@ -779,7 +789,7 @@ async fn approle_login_missing_auth_returns_error() {
         .await
         .unwrap_err();
     assert!(
-        matches!(err, vault_client_rs::VaultError::EmptyResponse),
+        matches!(err, VaultError::EmptyResponse),
         "expected EmptyResponse for missing auth, got: {err:?}"
     );
 }

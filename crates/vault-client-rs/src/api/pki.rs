@@ -1,5 +1,5 @@
 use reqwest::Method;
-use secrecy::SecretString;
+use secrecy::{ExposeSecret, SecretString};
 
 use crate::VaultClient;
 use crate::api::traits::PkiOperations;
@@ -226,7 +226,6 @@ impl PkiOperations for PkiHandler<'_> {
         serial: &str,
         private_key: &SecretString,
     ) -> Result<PkiRevocationInfo, VaultError> {
-        use secrecy::ExposeSecret;
         let body = serde_json::json!({
             "serial_number": serial,
             "private_key": private_key.expose_secret(),

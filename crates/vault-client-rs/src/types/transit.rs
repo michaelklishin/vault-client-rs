@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::fmt;
 
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::redaction::redact;
+use super::redaction::{RedactionLevel, redact, redaction_level};
 
 #[derive(Debug, Serialize, Default, Clone)]
 pub struct TransitKeyParams {
@@ -73,8 +74,8 @@ pub(crate) struct TransitDecryptResponse {
     pub plaintext: SecretString,
 }
 
-impl std::fmt::Debug for TransitDecryptResponse {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for TransitDecryptResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TransitDecryptResponse")
             .field("plaintext", &redact(self.plaintext.expose_secret()))
             .finish()
@@ -103,8 +104,8 @@ impl Clone for TransitBatchPlaintext {
     }
 }
 
-impl std::fmt::Debug for TransitBatchPlaintext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for TransitBatchPlaintext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TransitBatchPlaintext")
             .field("plaintext", &"[REDACTED]")
             .field("context", &self.context)
@@ -174,8 +175,8 @@ impl Clone for TransitDataKey {
     }
 }
 
-impl std::fmt::Debug for TransitDataKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for TransitDataKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TransitDataKey")
             .field("ciphertext", &self.ciphertext)
             .field(
@@ -206,11 +207,8 @@ impl Clone for TransitExportedKey {
     }
 }
 
-impl std::fmt::Debug for TransitExportedKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use super::redaction::RedactionLevel;
-        use super::redaction::redaction_level;
-
+impl fmt::Debug for TransitExportedKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match redaction_level() {
             RedactionLevel::Full => {
                 let summary = format!("[REDACTED; {} versions]", self.keys.len());
@@ -271,8 +269,8 @@ impl Clone for TransitBatchDecryptItem {
     }
 }
 
-impl std::fmt::Debug for TransitBatchDecryptItem {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for TransitBatchDecryptItem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TransitBatchDecryptItem")
             .field(
                 "plaintext",
@@ -288,8 +286,8 @@ pub(crate) struct TransitBackupResponse {
     pub backup: SecretString,
 }
 
-impl std::fmt::Debug for TransitBackupResponse {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for TransitBackupResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TransitBackupResponse")
             .field("backup", &redact(self.backup.expose_secret()))
             .finish()

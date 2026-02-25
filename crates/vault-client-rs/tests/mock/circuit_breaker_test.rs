@@ -1,6 +1,6 @@
+use std::collections::HashMap;
 use std::time::Duration;
 
-use secrecy::SecretString;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -21,7 +21,7 @@ async fn circuit_opens_after_threshold() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("test-token"))
+        .token_str("test-token")
         .max_retries(0)
         .circuit_breaker(CircuitBreakerConfig {
             failure_threshold: 3,
@@ -34,7 +34,7 @@ async fn circuit_opens_after_threshold() {
     for _ in 0..3 {
         let err = client.kv1("secret").read::<serde_json::Value>("test").await;
         assert!(err.is_err());
-        // These should be Api errors or RetryExhausted, not CircuitOpen
+        // These should be Api errors, not CircuitOpen
         let err = err.unwrap_err();
         assert!(
             !matches!(err, VaultError::CircuitOpen),
@@ -69,7 +69,7 @@ async fn circuit_resets_after_timeout() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("test-token"))
+        .token_str("test-token")
         .max_retries(0)
         .circuit_breaker(CircuitBreakerConfig {
             failure_threshold: 2,
@@ -105,14 +105,69 @@ async fn circuit_resets_after_timeout() {
         .await;
 
     // The probe request should succeed (half-open -> closed)
-    let data: std::collections::HashMap<String, String> =
+    let data: HashMap<String, String> =
         client.kv1("secret").read("test").await.unwrap();
     assert_eq!(data["key"], "value");
 
     // Subsequent requests should also succeed
-    let data2: std::collections::HashMap<String, String> =
+    let data2: HashMap<String, String> =
         client.kv1("secret").read("test").await.unwrap();
     assert_eq!(data2["key"], "value");
+}
+
+#[tokio::test]
+async fn failed_probe_sends_circuit_back_to_open() {
+    let server = MockServer::start().await;
+
+    // Always fail to trip the circuit and fail the probe
+    Mock::given(method("GET"))
+        .and(path("/v1/secret/test"))
+        .respond_with(ResponseTemplate::new(500).set_body_json(serde_json::json!({
+            "errors": ["internal error"]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = VaultClient::builder()
+        .address(&server.uri())
+        .token_str("test-token")
+        .max_retries(0)
+        .circuit_breaker(CircuitBreakerConfig {
+            failure_threshold: 2,
+            reset_timeout: Duration::from_millis(100),
+        })
+        .build()
+        .unwrap();
+
+    // Trip the circuit
+    for _ in 0..2 {
+        let _ = client.kv1("secret").read::<serde_json::Value>("test").await;
+    }
+
+    // Wait for reset timeout — circuit enters HalfOpen on next check
+    tokio::time::sleep(Duration::from_millis(150)).await;
+
+    // Probe goes through (HalfOpen allows it) but fails — circuit back to Open
+    let probe_err = client
+        .kv1("secret")
+        .read::<serde_json::Value>("test")
+        .await
+        .unwrap_err();
+    assert!(
+        !matches!(probe_err, VaultError::CircuitOpen),
+        "probe should not be short-circuited, got: {probe_err}"
+    );
+
+    // Immediately after the failed probe, circuit is back to Open
+    let err = client
+        .kv1("secret")
+        .read::<serde_json::Value>("test")
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, VaultError::CircuitOpen),
+        "circuit should be open after failed probe, got: {err}"
+    );
 }
 
 #[tokio::test]
@@ -121,7 +176,7 @@ async fn success_resets_failure_counter() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("test-token"))
+        .token_str("test-token")
         .max_retries(0)
         .circuit_breaker(CircuitBreakerConfig {
             failure_threshold: 3,
@@ -154,7 +209,7 @@ async fn success_resets_failure_counter() {
         .mount(&server)
         .await;
 
-    let _: std::collections::HashMap<String, String> =
+    let _: HashMap<String, String> =
         client.kv1("secret").read("test").await.unwrap();
 
     // Two more failures — counter should have been reset, so circuit stays closed

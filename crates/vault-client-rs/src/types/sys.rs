@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
@@ -93,8 +94,8 @@ impl Clone for InitResponse {
     }
 }
 
-impl std::fmt::Debug for InitResponse {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for InitResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let keys: Vec<String> = self
             .keys
             .iter()
@@ -429,8 +430,8 @@ impl Clone for RekeyStatus {
     }
 }
 
-impl std::fmt::Debug for RekeyStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for RekeyStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RekeyStatus")
             .field("started", &self.started)
             .field("nonce", &self.nonce)
@@ -501,8 +502,8 @@ impl Clone for GenerateRootStatus {
     }
 }
 
-impl std::fmt::Debug for GenerateRootStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for GenerateRootStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("GenerateRootStatus")
             .field("started", &self.started)
             .field("nonce", &self.nonce)

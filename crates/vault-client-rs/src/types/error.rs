@@ -1,3 +1,6 @@
+use std::num::{ParseFloatError, ParseIntError};
+use std::string::FromUtf8Error;
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -9,8 +12,8 @@ pub enum VaultError {
     #[error("Vault API error (HTTP {status}): {}", errors.join("; "))]
     Api { status: u16, errors: Vec<String> },
 
-    #[error("Vault is sealed")]
-    Sealed,
+    #[error("Vault is sealed ({url})")]
+    Sealed { url: String },
 
     #[error("Permission denied: {}", errors.join("; "))]
     PermissionDenied { errors: Vec<String> },
@@ -30,13 +33,6 @@ pub enum VaultError {
     #[error("Authentication required or token expired")]
     AuthRequired,
 
-    #[error("Request failed after {attempts} retries")]
-    RetryExhausted {
-        attempts: u32,
-        #[source]
-        last_error: Box<VaultError>,
-    },
-
     #[error("Invalid client configuration: {0}")]
     Config(String),
 
@@ -52,8 +48,8 @@ pub enum VaultError {
     #[error("Circuit breaker is open — Vault appears unreachable")]
     CircuitOpen,
 
-    #[error("Field '{field}' not found at '{path}'")]
-    FieldNotFound { path: String, field: String },
+    #[error("Field '{field}' not found at '{mount}/{path}'")]
+    FieldNotFound { mount: String, path: String, field: String },
 }
 
 impl From<serde_json::Error> for VaultError {
@@ -62,20 +58,20 @@ impl From<serde_json::Error> for VaultError {
     }
 }
 
-impl From<std::string::FromUtf8Error> for VaultError {
-    fn from(err: std::string::FromUtf8Error) -> Self {
+impl From<FromUtf8Error> for VaultError {
+    fn from(err: FromUtf8Error) -> Self {
         Self::Config(format!("invalid UTF-8: {err}"))
     }
 }
 
-impl From<std::num::ParseIntError> for VaultError {
-    fn from(err: std::num::ParseIntError) -> Self {
+impl From<ParseIntError> for VaultError {
+    fn from(err: ParseIntError) -> Self {
         Self::Config(format!("integer parse error: {err}"))
     }
 }
 
-impl From<std::num::ParseFloatError> for VaultError {
-    fn from(err: std::num::ParseFloatError) -> Self {
+impl From<ParseFloatError> for VaultError {
+    fn from(err: ParseFloatError) -> Self {
         Self::Config(format!("float parse error: {err}"))
     }
 }
@@ -85,7 +81,7 @@ impl VaultError {
     pub fn is_retryable(&self) -> bool {
         match self {
             Self::Http(e) => e.is_timeout() || e.is_connect(),
-            Self::Sealed | Self::RateLimited { .. } | Self::ConsistencyRetry => true,
+            Self::Sealed { .. } | Self::RateLimited { .. } | Self::ConsistencyRetry => true,
             Self::Api { status, .. } => matches!(status, 500 | 502 | 503 | 504),
             _ => false,
         }
@@ -105,7 +101,7 @@ impl VaultError {
             Self::NotFound { .. } => Some(404),
             Self::RateLimited { .. } => Some(429),
             Self::ConsistencyRetry => Some(412),
-            Self::Sealed => Some(503),
+            Self::Sealed { .. } => Some(503),
             _ => None,
         }
     }

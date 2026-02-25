@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
@@ -60,8 +61,8 @@ impl Clone for AuthInfo {
     }
 }
 
-impl std::fmt::Debug for AuthInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for AuthInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AuthInfo")
             .field("client_token", &redact(self.client_token.expose_secret()))
             .field("accessor", &self.accessor)
@@ -103,8 +104,8 @@ impl Clone for WrapInfo {
     }
 }
 
-impl std::fmt::Debug for WrapInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for WrapInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WrapInfo")
             .field("token", &redact(self.token.expose_secret()))
             .field("accessor", &self.accessor)

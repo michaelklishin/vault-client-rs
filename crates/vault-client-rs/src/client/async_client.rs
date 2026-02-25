@@ -1,4 +1,5 @@
 use std::fmt::{self, Write};
+use std::fs;
 use std::sync::{Arc, LazyLock, RwLock};
 use std::time::{Duration, Instant};
 
@@ -8,11 +9,12 @@ use secrecy::{ExposeSecret, SecretString};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use url::Url;
+use zeroize::Zeroizing;
 
 use tracing::Instrument;
 
 use crate::api;
-use crate::api::auth::AuthMethodDyn;
+use crate::api::auth::{AuthMethod, AuthMethodDyn};
 use crate::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig};
 use crate::types::error::VaultError;
 use crate::types::kv::ListResponse;
@@ -24,9 +26,9 @@ const MAX_BACKOFF: Duration = Duration::from_secs(30);
 static METHOD_LIST: LazyLock<Method> =
     LazyLock::new(|| Method::from_bytes(b"LIST").expect("LIST is a valid HTTP method"));
 
-/// An asynchronous Vault client.
+/// An asynchronous Vault client
 ///
-/// Build instances with [`ClientBuilder`].
+/// Build instances with [`ClientBuilder`]
 #[derive(Clone)]
 pub struct VaultClient {
     pub(crate) inner: Arc<VaultClientInner>,
@@ -77,6 +79,7 @@ pub(crate) struct ClientConfig {
     pub initial_retry_delay: Duration,
     pub wrap_ttl: Option<String>,
     pub forward_to_leader: bool,
+    pub retry_on_sealed: bool,
 }
 
 impl Default for ClientConfig {
@@ -87,6 +90,7 @@ impl Default for ClientConfig {
             initial_retry_delay: Duration::from_millis(500),
             wrap_ttl: None,
             forward_to_leader: false,
+            retry_on_sealed: true,
         }
     }
 }
@@ -110,40 +114,66 @@ pub struct ClientBuilder {
     danger_disable_tls_verify: bool,
     ca_cert_pem: Option<Vec<u8>>,
     client_cert_pem: Option<Vec<u8>>,
-    client_key_pem: Option<zeroize::Zeroizing<Vec<u8>>>,
+    client_key_pem: Option<Zeroizing<Vec<u8>>>,
     reqwest_client: Option<Client>,
     auth_method: Option<Arc<dyn AuthMethodDyn>>,
     circuit_breaker: Option<CircuitBreakerConfig>,
     on_token_changed: Option<TokenChangedCallback>,
+    /// When true: max_retries=0 and Sealed is not retried
+    cli_mode: bool,
 }
 
 impl ClientBuilder {
-    /// Pre-populate the builder from `VAULT_*` environment variables
+    /// Pre-populate the builder from `VAULT_*` environment variables;
+    /// token resolution order: `VAULT_TOKEN` → `~/.vault-token` → `None`
     pub fn from_env() -> Self {
+        let cli_mode = std::env::var("VAULT_CLI_MODE")
+            .ok()
+            .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
+
+        let skip_tls = std::env::var("VAULT_SKIP_VERIFY")
+            .ok()
+            .or_else(|| {
+                let v = std::env::var("VAULT_SKIP_TLS_VERIFY").ok();
+                if v.is_some() {
+                    tracing::warn!(
+                        "VAULT_SKIP_TLS_VERIFY is non-standard; use VAULT_SKIP_VERIFY"
+                    );
+                }
+                v
+            })
+            .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
+
         Self {
             address: std::env::var("VAULT_ADDR").ok(),
-            token: std::env::var("VAULT_TOKEN").ok().map(SecretString::from),
+            token: std::env::var("VAULT_TOKEN")
+                .ok()
+                .map(SecretString::from)
+                .or_else(read_vault_token_file),
             namespace: std::env::var("VAULT_NAMESPACE").ok(),
             timeout: std::env::var("VAULT_CLIENT_TIMEOUT")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .map(Duration::from_secs),
-            max_retries: std::env::var("VAULT_MAX_RETRIES")
-                .ok()
-                .and_then(|v| v.parse().ok()),
+            max_retries: if cli_mode {
+                Some(0)
+            } else {
+                std::env::var("VAULT_MAX_RETRIES")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+            },
             wrap_ttl: std::env::var("VAULT_WRAP_TTL").ok(),
-            danger_disable_tls_verify: std::env::var("VAULT_SKIP_VERIFY")
-                .ok()
-                .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true")),
+            danger_disable_tls_verify: skip_tls,
             ca_cert_pem: std::env::var("VAULT_CACERT")
                 .ok()
-                .and_then(|path| std::fs::read(path).ok()),
+                .and_then(|path| fs::read(path).ok()),
             client_cert_pem: std::env::var("VAULT_CLIENT_CERT")
                 .ok()
-                .and_then(|path| std::fs::read(path).ok()),
+                .and_then(|path| fs::read(path).ok()),
             client_key_pem: std::env::var("VAULT_CLIENT_KEY")
                 .ok()
-                .and_then(|path| std::fs::read(path).ok().map(zeroize::Zeroizing::new)),
+                .and_then(|path| fs::read(path).ok().map(Zeroizing::new)),
+            cli_mode,
             ..Self::default()
         }
     }
@@ -192,6 +222,19 @@ impl ClientBuilder {
         self
     }
 
+    /// Optimise for short-lived CLI invocations
+    ///
+    /// Sets `max_retries(0)` and disables sealed-Vault retries —
+    /// a sealed Vault will not unseal itself between invocations —
+    /// equivalent to `VAULT_CLI_MODE=1` in `from_env()`
+    pub fn cli_mode(mut self, yes: bool) -> Self {
+        if yes {
+            self.max_retries = Some(0);
+        }
+        self.cli_mode = yes;
+        self
+    }
+
     pub fn danger_disable_tls_verify(mut self, yes: bool) -> Self {
         self.danger_disable_tls_verify = yes;
         self
@@ -204,7 +247,7 @@ impl ClientBuilder {
 
     pub fn client_cert_pem(mut self, cert: impl Into<Vec<u8>>, key: impl Into<Vec<u8>>) -> Self {
         self.client_cert_pem = Some(cert.into());
-        self.client_key_pem = Some(zeroize::Zeroizing::new(key.into()));
+        self.client_key_pem = Some(Zeroizing::new(key.into()));
         self
     }
 
@@ -212,7 +255,7 @@ impl ClientBuilder {
     ///
     /// When set, the client will automatically re-authenticate when the token
     /// nears expiry or is missing
-    pub fn auth_method(mut self, method: impl crate::api::auth::AuthMethod + 'static) -> Self {
+    pub fn auth_method(mut self, method: impl AuthMethod + 'static) -> Self {
         self.auth_method = Some(Arc::new(method));
         self
     }
@@ -257,6 +300,7 @@ impl ClientBuilder {
                 .unwrap_or(Duration::from_millis(500)),
             wrap_ttl: self.wrap_ttl,
             forward_to_leader: self.forward_to_leader,
+            retry_on_sealed: !self.cli_mode,
         };
 
         // Build the HTTP client. We must do this after constructing config
@@ -280,6 +324,14 @@ impl ClientBuilder {
             renewable: false,
             lease_duration: Duration::ZERO,
         });
+
+        if self.danger_disable_tls_verify {
+            tracing::warn!(
+                vault_address = %base_url,
+                "TLS certificate verification is DISABLED (danger_disable_tls_verify). \
+                 This must not be used in production."
+            );
+        }
 
         Ok(VaultClient {
             inner: Arc::new(VaultClientInner {
@@ -317,7 +369,7 @@ fn build_reqwest_client(
 
     if let (Some(cert_pem), Some(key_pem)) = (client_cert_pem, client_key_pem) {
         let mut combined =
-            zeroize::Zeroizing::new(Vec::with_capacity(cert_pem.len() + key_pem.len()));
+            Zeroizing::new(Vec::with_capacity(cert_pem.len() + key_pem.len()));
         combined.extend_from_slice(cert_pem);
         combined.extend_from_slice(key_pem);
         let identity = reqwest::tls::Identity::from_pem(&combined)
@@ -343,7 +395,8 @@ impl VaultClient {
         Self::builder().address(address).token_str(token).build()
     }
 
-    /// Create a client from `VAULT_ADDR` and `VAULT_TOKEN` environment variables
+    /// Create a client from `VAULT_*` environment variables;
+    /// token resolution order: `VAULT_TOKEN` → `~/.vault-token` → `None`
     pub fn from_env() -> Result<Self, VaultError> {
         ClientBuilder::from_env().build()
     }
@@ -642,9 +695,9 @@ impl VaultClient {
         Ok(())
     }
 
-    /// Deserialize response body directly (that is, not through the Vault envelope).
+    /// Deserialize response body directly (that is, not through the Vault envelope)
     ///
-    /// Used for endpoints like /sys/health that return flat JSON.
+    /// Used for endpoints like /sys/health that return flat JSON
     pub(crate) async fn exec_direct<T: DeserializeOwned>(
         &self,
         method: Method,
@@ -690,10 +743,10 @@ impl VaultClient {
         }
     }
 
-    /// Proactively renew or re-authenticate before the token expires.
+    /// Proactively renew or re-authenticate before the token expires
     ///
     /// Uses a double-check pattern to avoid redundant renewals under contention;
-    /// all lock guards are dropped before any `.await` to keep futures `Send`.
+    /// all lock guards are dropped before any `.await` to keep futures `Send`
     async fn ensure_valid_token(&self) -> Result<(), VaultError> {
         enum Action {
             Ok,
@@ -777,7 +830,7 @@ impl VaultClient {
     }
 
     /// Low-level execute that bypasses token lifecycle, used internally by
-    /// `ensure_valid_token` to avoid recursion.
+    /// `ensure_valid_token` to avoid recursion
     pub(crate) async fn execute_raw(
         &self,
         method: Method,
@@ -877,7 +930,6 @@ impl VaultClient {
         method: &Method,
     ) -> Result<Response, VaultError> {
         let max = self.inner.config.max_retries;
-        let mut last_err: Option<VaultError> = None;
         let mut skip_backoff = false;
 
         for attempt in 0..=max {
@@ -926,7 +978,6 @@ impl VaultClient {
                             if attempt >= max {
                                 return Err(VaultError::RateLimited { retry_after });
                             }
-                            last_err = Some(VaultError::RateLimited { retry_after });
                             if let Some(secs) = retry_after {
                                 let capped = Duration::from_secs(secs).min(MAX_BACKOFF);
                                 tokio::time::sleep(capped).await;
@@ -938,21 +989,19 @@ impl VaultClient {
                             if attempt >= max {
                                 return Err(VaultError::ConsistencyRetry);
                             }
-                            last_err = Some(VaultError::ConsistencyRetry);
                             continue;
                         }
                         503 => {
-                            if attempt >= max {
-                                return Err(VaultError::Sealed);
+                            let e = VaultError::Sealed { url: url.to_string() };
+                            if attempt >= max || !self.inner.config.retry_on_sealed {
+                                return Err(e);
                             }
-                            last_err = Some(VaultError::Sealed);
                             continue;
                         }
                         _ => {
                             let errors = Self::extract_errors(resp).await;
                             let err = VaultError::Api { status, errors };
                             if err.is_retryable() && attempt < max {
-                                last_err = Some(err);
                                 continue;
                             }
                             return Err(err);
@@ -960,19 +1009,13 @@ impl VaultClient {
                     }
                 }
                 Err(e) if (e.is_timeout() || e.is_connect()) && attempt < max => {
-                    last_err = Some(VaultError::Http(e));
                     continue;
                 }
                 Err(e) => return Err(VaultError::Http(e)),
             }
         }
 
-        Err(VaultError::RetryExhausted {
-            attempts: max.saturating_add(1),
-            last_error: Box::new(
-                last_err.unwrap_or_else(|| VaultError::Config("retry exhausted".into())),
-            ),
-        })
+        unreachable!("retry loop always returns from within")
     }
 
     async fn extract_errors(resp: Response) -> Vec<String> {
@@ -1000,6 +1043,21 @@ impl VaultClient {
 /// Serialize a value to `serde_json::Value`, mapping errors to `VaultError::Config`
 pub(crate) fn to_body(value: &impl Serialize) -> Result<serde_json::Value, VaultError> {
     serde_json::to_value(value).map_err(|e| VaultError::Config(format!("serialize: {e}")))
+}
+
+/// Read `~/.vault-token`, mirroring the Vault CLI token helper
+///
+/// Returns `None` on any I/O error or empty file. Trims trailing whitespace —
+/// `vault login` writes a trailing newline
+fn read_vault_token_file() -> Option<SecretString> {
+    let path = home::home_dir()?.join(".vault-token");
+    let raw = fs::read_to_string(path).ok()?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(SecretString::from(trimmed))
+    }
 }
 
 /// Percent-encode characters in a path segment that would cause URL parsing issues

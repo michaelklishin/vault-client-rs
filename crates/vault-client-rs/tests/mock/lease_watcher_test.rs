@@ -4,13 +4,13 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::common::build_test_client;
-use vault_client_rs::{LeaseEvent, VaultClient, VaultError};
+use vault_client_rs::{LeaseEvent, LeaseWatcher, VaultClient, VaultError};
 
 // The watcher sleeps for ~66% of TTL + 0-5s random jitter before renewing.
 // With TTL=1s that's 0.66s + 0-5s = up to 5.66s. We use a generous timeout.
 const RECV_TIMEOUT: Duration = Duration::from_secs(10);
 
-async fn recv_timeout(watcher: &mut vault_client_rs::LeaseWatcher) -> Option<LeaseEvent> {
+async fn recv_timeout(watcher: &mut LeaseWatcher) -> Option<LeaseEvent> {
     tokio::time::timeout(RECV_TIMEOUT, watcher.recv())
         .await
         .ok()

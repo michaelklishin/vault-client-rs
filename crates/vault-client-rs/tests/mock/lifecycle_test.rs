@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use secrecy::{ExposeSecret, SecretString};
+use secrecy::ExposeSecret;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -41,7 +41,7 @@ async fn ensure_valid_token_skipped_for_auth_endpoints() {
     // No renewal mock needed; auth endpoints bypass the token lifecycle check
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("test-token"))
+        .token_str("test-token")
         .max_retries(0)
         .build()
         .unwrap();
@@ -93,7 +93,7 @@ async fn request_with_valid_token_does_not_renew() {
     // A fresh token without lease info has no expiry, so no renewal should trigger
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("test-token"))
+        .token_str("test-token")
         .max_retries(0)
         .build()
         .unwrap();
@@ -134,7 +134,7 @@ async fn on_token_changed_fires_on_renewal() {
 
     let client = VaultClient::builder()
         .address(&server.uri())
-        .token(SecretString::from("old-token"))
+        .token_str("old-token")
         .max_retries(0)
         .on_token_changed(move |auth| {
             cb_tokens

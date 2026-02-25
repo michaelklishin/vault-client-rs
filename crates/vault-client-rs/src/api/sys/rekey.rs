@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use reqwest::Method;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 
 use crate::client::to_body;
 use crate::types::error::VaultError;
-use crate::types::response::WrapInfo;
+use crate::types::response::{VaultResponse, WrapInfo};
 use crate::types::sys::*;
 
 use super::SysHandler;
@@ -12,7 +14,7 @@ use super::SysHandler;
 #[derive(Deserialize)]
 struct VersionHistoryResponse {
     #[serde(default)]
-    key_info: std::collections::HashMap<String, VersionHistoryEntry>,
+    key_info: HashMap<String, VersionHistoryEntry>,
 }
 
 impl SysHandler<'_> {
@@ -129,7 +131,7 @@ impl SysHandler<'_> {
 
     pub async fn rewrap(&self, token: &SecretString) -> Result<WrapInfo, VaultError> {
         let body = serde_json::json!({ "token": token.expose_secret() });
-        let resp: crate::types::response::VaultResponse<serde_json::Value> = self
+        let resp: VaultResponse<serde_json::Value> = self
             .client
             .exec_with_auth(Method::POST, "sys/wrapping/rewrap", Some(&body))
             .await?;
@@ -138,7 +140,7 @@ impl SysHandler<'_> {
 
     pub async fn in_flight_requests(
         &self,
-    ) -> Result<std::collections::HashMap<String, InFlightRequest>, VaultError> {
+    ) -> Result<HashMap<String, InFlightRequest>, VaultError> {
         self.client
             .exec_direct(Method::GET, "sys/in-flight-req", None)
             .await

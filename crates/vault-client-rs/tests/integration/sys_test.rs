@@ -1,10 +1,10 @@
 use vault_client_rs::types::auth::*;
 use vault_client_rs::types::sys::*;
-use vault_client_rs::{Kv2Operations, TokenAuthOperations};
+use vault_client_rs::{Kv2Operations, TokenAuthOperations, VaultClient, VaultError};
 
 use crate::common::*;
 
-fn client() -> vault_client_rs::VaultClient {
+fn client() -> VaultClient {
     build_client(&vault_addr(), vault_token())
 }
 
@@ -244,7 +244,7 @@ async fn lease_read() {
     let result = client.sys().read_lease(&lease_id).await;
     // Either succeeds or we get NotFound — both prove the API path works
     assert!(
-        result.is_ok() || matches!(result.unwrap_err(), vault_client_rs::VaultError::Api { .. })
+        result.is_ok() || matches!(result.unwrap_err(), VaultError::Api { .. })
     );
 
     client

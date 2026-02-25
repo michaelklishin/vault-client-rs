@@ -5,6 +5,7 @@ use wiremock::matchers::{body_json, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::common::build_test_client;
+use vault_client_rs::types::sys::*;
 
 #[tokio::test]
 async fn health_returns_status() {
@@ -110,7 +111,7 @@ async fn mount_sends_post() {
         .await;
 
     let client = build_test_client(&server).await;
-    let params = vault_client_rs::types::sys::MountParams {
+    let params = MountParams {
         mount_type: "kv".to_string(),
         description: Some("test mount".into()),
         config: None,
@@ -199,7 +200,7 @@ async fn enable_auth_sends_post() {
         .await;
 
     let client = build_test_client(&server).await;
-    let params = vault_client_rs::types::sys::AuthMountParams {
+    let params = AuthMountParams {
         mount_type: "approle".into(),
         description: None,
         config: None,
@@ -347,7 +348,7 @@ async fn init_returns_keys_and_root_token() {
         .await;
 
     let client = build_test_client(&server).await;
-    let params = vault_client_rs::types::sys::InitParams {
+    let params = InitParams {
         secret_shares: 5,
         secret_threshold: 3,
         pgp_keys: None,
@@ -379,7 +380,7 @@ async fn tune_mount_sends_post() {
         .await;
 
     let client = build_test_client(&server).await;
-    let params = vault_client_rs::types::sys::MountTuneParams {
+    let params = MountTuneParams {
         default_lease_ttl: Some("30m".into()),
         max_lease_ttl: Some("1h".into()),
         description: None,
@@ -668,7 +669,7 @@ async fn enable_audit_sends_put() {
         .await;
 
     let client = build_test_client(&server).await;
-    let params = vault_client_rs::types::sys::AuditParams {
+    let params = AuditParams {
         audit_type: "file".into(),
         description: Some("file audit device".into()),
         options: [(

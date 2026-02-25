@@ -310,7 +310,7 @@ async fn set_urls_posts_config() {
         .await;
 
     let client = build_test_client(&server).await;
-    let config = vault_client_rs::PkiUrlsConfig {
+    let config = PkiUrlsConfig {
         issuing_certificates: vec!["https://vault.example.com/v1/pki/ca".into()],
         crl_distribution_points: vec!["https://vault.example.com/v1/pki/crl".into()],
         ocsp_servers: vec![],

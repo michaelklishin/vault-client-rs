@@ -6,6 +6,7 @@ mod azure_gcp_test;
 mod circuit_breaker_test;
 mod client_test;
 mod convenience_test;
+mod ergonomics_test;
 mod cubbyhole_test;
 mod database_test;
 mod identity_test;

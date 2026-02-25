@@ -202,8 +202,8 @@ async fn kv2_read_field_missing_field_returns_error() {
         .unwrap_err();
 
     assert!(
-        matches!(err, VaultError::FieldNotFound { ref path, ref field }
-            if path == "myapp/config" && field == "nonexistent"),
+        matches!(err, VaultError::FieldNotFound { ref mount, ref path, ref field }
+            if mount == "secret" && path == "myapp/config" && field == "nonexistent"),
         "expected FieldNotFound, got: {err:?}"
     );
 }
@@ -309,6 +309,38 @@ async fn kv2_read_string_data_returns_hashmap() {
     assert_eq!(data.len(), 2);
     assert_eq!(data["db_host"], "db.internal");
     assert_eq!(data["db_port"], "5432");
+}
+
+#[tokio::test]
+async fn kv2_read_string_data_fails_for_non_string_values() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/v1/secret/data/myapp/mixed"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(kv2_read_response(
+            serde_json::json!({
+                "host": "db.internal",
+                "port": 5432
+            }),
+        )))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = build_client_with_token(&server, "test-token").await;
+    let err = client
+        .kv2("secret")
+        .read_string_data("myapp/mixed")
+        .await
+        .unwrap_err();
+
+    // reqwest wraps serde decode errors as VaultError::Http with is_decode() true
+    match err {
+        VaultError::Http(ref e) => {
+            assert!(e.is_decode(), "expected a decode error, got: {e}");
+        }
+        other => panic!("expected Http decode error for non-string values, got: {other:?}"),
+    }
 }
 
 // ---------------------------------------------------------------------------
