@@ -8,7 +8,7 @@ Rust `1.93+`.
 ## Build System
 
 All the standard Cargo commands apply but with one important detail: make sure to add `--all-features` so that
-all feature-gated code (vendor TLV parsing, axum integration) is included.
+all feature-gated code (`blocking`, `auto-renew`) is included.
 
  * `cargo build --all-features` to build
  * `cargo nextest run --all-features` to run tests
@@ -20,13 +20,40 @@ Always run `cargo check --all-features` before making changes to verify the code
 If compilation fails, investigate and fix compilation errors before proceeding with any modifications.
 
 
+## Repository Layout
+
+This is a Cargo workspace with the following crates:
+
+ * `crates/vault-client-rs/`: the main library crate
+ * `crates/vault-client-rs-test/`: test utilities (mock server helpers, response builders)
+
 ## Key Files
 
-TBD
+ * `src/lib.rs`: crate root, module declarations and public re-exports
+ * `src/client/async_client.rs`: `VaultClient`, `ClientBuilder`, `TokenState`, retry logic
+ * `src/client/blocking_client.rs`: synchronous wrapper around the async client, feature-gated on `blocking`
+ * `src/api/traits.rs`: operation traits for all handlers (enables mocking)
+ * `src/api/auth/`: auth method handlers (approle, aws, azure, cert, gcp, github, kubernetes, kerberos, ldap, oidc, radius, token, userpass)
+ * `src/api/sys/`: system handlers (health, seal, lease, mounts, auth, policy, audit, wrapping, plugins, raft, rekey, quotas, namespaces)
+ * `src/api/kv2.rs`: KV v2 handler with convenience methods
+ * `src/api/*.rs`: secret engine handlers (kv1, transit, pki, database, ssh, cubbyhole, aws, azure, gcp, consul, nomad, rabbitmq, terraform, totp, identity)
+ * `src/types/error.rs`: `VaultError` enum with retryability metadata
+ * `src/types/secret.rs`: `MountPath`, `SecretPath` validated newtypes
+ * `src/types/redaction.rs`: configurable log redaction (`Full`/`Partial`/`None`)
+ * `src/types/*.rs`: request/response types per engine
+ * `src/circuit_breaker.rs`: circuit breaker state machine
+ * `src/renewal.rs`: token renewal daemon and lease watchers (feature-gated on `auto-renew`)
+ * `src/blocking/mod.rs`: blocking handler wrappers (feature-gated on `blocking`)
 
 ## Test Suite Layout
 
-TBD
+Tests are consolidated into three test binaries (plus the test utilities crate) for faster compilation:
+
+ * `tests/mock/`: tests that use `wiremock` (HTTP-level mocking)
+ * `tests/unit/`: unit and property-based tests (the latter use `proptest`)
+ * `tests/integration/`: integration tests that require a locally running Vault node
+
+Each directory has a `main.rs` crate root that declares all modules.
 
 Use `cargo nextest run --profile default --all-features '--' --exact [test module name]` to run
 all tests in a specific module.
