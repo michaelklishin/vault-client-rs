@@ -3,7 +3,7 @@
 ## What is This Codebase?
 
 A modern Rust client for [Vault](https://www.hashicorp.com/en/products/vault) targeting
-Rust `1.93+`.
+Rust `1.94+`.
 
 ## Build System
 
@@ -79,6 +79,27 @@ comment density — the codebase is deliberately light on comments.
 
 If asked to perform change log updates, consult and modify `CHANGELOG.md` and stick to its
 existing writing style.
+
+## Releases
+
+### How to Roll (Produce) a New Release
+
+Suppose the current development version in `Cargo.toml` is `0.N.0` and `CHANGELOG.md` has
+a `## 0.N.0 (in development)` section at the top.
+
+To produce a new release:
+
+ 1. Update the changelog: replace `(in development)` with today's date, e.g. `(Feb 20, 2026)`. Make sure all notable changes since the previous release are listed
+ 2. Commit with the message `0.N.0` (just the version number, nothing else)
+ 3. Tag the commit: `git tag v0.N.0`
+ 4. Bump the dev version: back on `main`, set `Cargo.toml` workspace version to `0.(N+1).0`
+ 5. Add a new `## 0.(N+1).0 (in development)` section to `CHANGELOG.md` with `No changes yet.` underneath
+ 6. Commit with the message `Bump dev version`
+ 7. Push: `git push && git push --tags`
+
+Publishing to crates.io is handled automatically by `.github/workflows/release.yml` via
+Trusted Publishing — no API tokens or manual `cargo publish` needed. The workflow validates
+that the tag matches the version in `Cargo.toml`, then publishes.
 
 ## Git Commits
 
