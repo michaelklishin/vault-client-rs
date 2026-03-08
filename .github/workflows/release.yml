@@ -11,7 +11,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  NEXT_RELEASE_VERSION: ${{ vars.NEXT_RELEASE_VERSION }}
 
 jobs:
   publish:

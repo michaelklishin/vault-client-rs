@@ -97,8 +97,8 @@ To produce a new release:
  6. Commit with the message `Bump dev version`
  7. Push: `git push && git push --tags`
 
-Publishing to crates.io is handled automatically by `.github/workflows/release.yml` via
-[Trusted Publishing](https://crates.io/docs/trusted-publishing).
+The tag push triggers `.github/workflows/release.yml`, which publishes the crate to crates.io
+via Trusted Publishing (OIDC). No manual `cargo publish` needed.
 
 ## Git Commits
 
