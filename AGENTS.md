@@ -92,7 +92,7 @@ To produce a new release:
  1. Update the changelog: replace `(in development)` with today's date, e.g. `(Feb 20, 2026)`. Make sure all notable changes since the previous release are listed
  2. Commit with the message `0.N.0` (just the version number, nothing else)
  3. Tag the commit: `git tag v0.N.0`
- 4. Bump the dev version: back on `main`, set `Cargo.toml` workspace version to `0.(N+1).0`
+ 4. Bump the dev version: back on `main`, set `Cargo.toml` workspace version to `0.(N+1).0` and update the `vault-client-rs` dependency version in `crates/vault-client-rs-test/Cargo.toml` to match
  5. Add a new `## 0.(N+1).0 (in development)` section to `CHANGELOG.md` with `No changes yet.` underneath
  6. Commit with the message `Bump dev version`
  7. Push: `git push && git push --tags`
