@@ -196,10 +196,7 @@ impl BlockingVaultClient {
         self.rt.block_on(self.inner.read(path))
     }
 
-    pub fn read_raw(
-        &self,
-        path: &str,
-    ) -> Result<VaultResponse<serde_json::Value>, VaultError> {
+    pub fn read_raw(&self, path: &str) -> Result<VaultResponse<serde_json::Value>, VaultError> {
         self.rt.block_on(self.inner.read_raw(path))
     }
 

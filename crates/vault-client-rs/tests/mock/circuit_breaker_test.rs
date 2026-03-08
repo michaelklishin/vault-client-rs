@@ -105,13 +105,11 @@ async fn circuit_resets_after_timeout() {
         .await;
 
     // The probe request should succeed (half-open -> closed)
-    let data: HashMap<String, String> =
-        client.kv1("secret").read("test").await.unwrap();
+    let data: HashMap<String, String> = client.kv1("secret").read("test").await.unwrap();
     assert_eq!(data["key"], "value");
 
     // Subsequent requests should also succeed
-    let data2: HashMap<String, String> =
-        client.kv1("secret").read("test").await.unwrap();
+    let data2: HashMap<String, String> = client.kv1("secret").read("test").await.unwrap();
     assert_eq!(data2["key"], "value");
 }
 
@@ -209,8 +207,7 @@ async fn success_resets_failure_counter() {
         .mount(&server)
         .await;
 
-    let _: HashMap<String, String> =
-        client.kv1("secret").read("test").await.unwrap();
+    let _: HashMap<String, String> = client.kv1("secret").read("test").await.unwrap();
 
     // Two more failures — counter should have been reset, so circuit stays closed
     server.reset().await;

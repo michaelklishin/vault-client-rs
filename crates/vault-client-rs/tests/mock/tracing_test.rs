@@ -54,8 +54,7 @@ async fn execute_raw_emits_vault_request_span() {
         .build()
         .unwrap();
 
-    let _: HashMap<String, String> =
-        client.kv1("secret").read("my-key").await.unwrap();
+    let _: HashMap<String, String> = client.kv1("secret").read("my-key").await.unwrap();
 
     let captured = spans.lock().unwrap();
     assert!(

@@ -7,7 +7,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 use crate::common::build_test_client;
 use vault_client_rs::types::auth::*;
 use vault_client_rs::{
-    AppRoleAuthOperations, K8sAuthOperations, KvReadResponse, Kv2Operations, TokenAuthOperations,
+    AppRoleAuthOperations, K8sAuthOperations, Kv2Operations, KvReadResponse, TokenAuthOperations,
 };
 
 fn auth_response_json() -> serde_json::Value {

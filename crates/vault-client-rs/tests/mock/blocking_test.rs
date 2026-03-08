@@ -27,7 +27,10 @@ fn blocking_new_builds_successfully() {
     let server = rt.block_on(MockServer::start());
 
     let client = BlockingVaultClient::new(&server.uri(), "my-token");
-    assert!(client.is_ok(), "BlockingVaultClient::new() should succeed: {client:?}");
+    assert!(
+        client.is_ok(),
+        "BlockingVaultClient::new() should succeed: {client:?}"
+    );
 }
 
 #[test]
@@ -67,8 +70,7 @@ fn blocking_kv2_read() {
         .build()
         .unwrap();
 
-    let resp: KvReadResponse<HashMap<String, String>> =
-        client.kv2("secret").read("key").unwrap();
+    let resp: KvReadResponse<HashMap<String, String>> = client.kv2("secret").read("key").unwrap();
     assert_eq!(resp.data["foo"], "bar");
 }
 
@@ -190,8 +192,7 @@ fn blocking_set_token() {
         .unwrap();
 
     client.set_token(SecretString::from("updated")).unwrap();
-    let _: KvReadResponse<HashMap<String, String>> =
-        client.kv2("secret").read("key").unwrap();
+    let _: KvReadResponse<HashMap<String, String>> = client.kv2("secret").read("key").unwrap();
 }
 
 #[test]

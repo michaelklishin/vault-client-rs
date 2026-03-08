@@ -120,11 +120,7 @@ async fn kv1_read_data_returns_deserialized_value() {
         .await;
 
     let client = build_test_client(&server).await;
-    let data: HashMap<String, String> = client
-        .kv1("secret")
-        .read_data("my-secret")
-        .await
-        .unwrap();
+    let data: HashMap<String, String> = client.kv1("secret").read_data("my-secret").await.unwrap();
 
     assert_eq!(data["host"], "db.internal");
     assert_eq!(data["port"], "5432");

@@ -7,7 +7,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::common::build_test_client;
 use vault_client_rs::{
-    AppRoleAuthOperations, KvReadResponse, Kv2Operations, TokenAuthOperations, VaultClient,
+    AppRoleAuthOperations, Kv2Operations, KvReadResponse, TokenAuthOperations, VaultClient,
     VaultError,
 };
 
@@ -15,15 +15,15 @@ use vault_client_rs::{
 async fn vault_client_new_builds_successfully() {
     let server = MockServer::start().await;
     let client = VaultClient::new(&server.uri(), "my-token");
-    assert!(client.is_ok(), "VaultClient::new() should succeed: {client:?}");
+    assert!(
+        client.is_ok(),
+        "VaultClient::new() should succeed: {client:?}"
+    );
 }
 
 #[tokio::test]
 async fn builder_requires_address() {
-    let err = VaultClient::builder()
-        .token_str("t")
-        .build()
-        .unwrap_err();
+    let err = VaultClient::builder().token_str("t").build().unwrap_err();
     assert!(matches!(err, VaultError::Config(_)));
 }
 
@@ -277,10 +277,7 @@ async fn permission_denied_not_retried() {
         .read::<serde_json::Value>("key")
         .await
         .unwrap_err();
-    assert!(matches!(
-        err,
-        VaultError::PermissionDenied { .. }
-    ));
+    assert!(matches!(err, VaultError::PermissionDenied { .. }));
 }
 
 #[tokio::test]

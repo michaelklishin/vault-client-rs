@@ -96,7 +96,10 @@ impl Kv1Handler<'_> {
     /// values cause a deserialization error. Use `read_field` to extract a
     /// single field regardless of its JSON type, or `read_data` to
     /// deserialize into a typed struct
-    pub async fn read_string_data(&self, path: &str) -> Result<HashMap<String, String>, VaultError> {
+    pub async fn read_string_data(
+        &self,
+        path: &str,
+    ) -> Result<HashMap<String, String>, VaultError> {
         Kv1Operations::read(self, path).await
     }
 }

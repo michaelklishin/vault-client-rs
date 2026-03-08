@@ -1,4 +1,6 @@
-use vault_client_rs::{RabbitmqCredentials, RedactionLevel, redact, redaction_level, set_redaction_level};
+use vault_client_rs::{
+    RabbitmqCredentials, RedactionLevel, redact, redaction_level, set_redaction_level,
+};
 
 #[test]
 fn default_level_is_full() {

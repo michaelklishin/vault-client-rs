@@ -111,7 +111,12 @@ fn secret_path_rejects_leading_slash() {
 
 #[test]
 fn retryable_variants_are_retryable() {
-    assert!(VaultError::Sealed { url: "http://vault:8200".into() }.is_retryable());
+    assert!(
+        VaultError::Sealed {
+            url: "http://vault:8200".into()
+        }
+        .is_retryable()
+    );
     assert!(VaultError::RateLimited { retry_after: None }.is_retryable());
     assert!(
         VaultError::RateLimited {
@@ -157,8 +162,12 @@ fn non_retryable_variants() {
     assert!(!VaultError::LockPoisoned.is_retryable());
     assert!(!VaultError::CircuitOpen.is_retryable());
     assert!(
-        !VaultError::FieldNotFound { mount: "s".into(), path: "p".into(), field: "f".into() }
-            .is_retryable()
+        !VaultError::FieldNotFound {
+            mount: "s".into(),
+            path: "p".into(),
+            field: "f".into()
+        }
+        .is_retryable()
     );
 }
 
@@ -166,7 +175,12 @@ fn non_retryable_variants() {
 fn auth_error_classification() {
     assert!(VaultError::PermissionDenied { errors: vec![] }.is_auth_error());
     assert!(VaultError::AuthRequired.is_auth_error());
-    assert!(!VaultError::Sealed { url: "http://vault:8200".into() }.is_auth_error());
+    assert!(
+        !VaultError::Sealed {
+            url: "http://vault:8200".into()
+        }
+        .is_auth_error()
+    );
     // Api 403 is NOT an auth error — it goes through the dedicated variant
     assert!(
         !VaultError::Api {
@@ -179,7 +193,13 @@ fn auth_error_classification() {
 
 #[test]
 fn status_code_for_dedicated_variants() {
-    assert_eq!(VaultError::Sealed { url: "http://vault:8200".into() }.status_code(), Some(503));
+    assert_eq!(
+        VaultError::Sealed {
+            url: "http://vault:8200".into()
+        }
+        .status_code(),
+        Some(503)
+    );
     assert_eq!(
         VaultError::RateLimited { retry_after: None }.status_code(),
         Some(429)
@@ -198,8 +218,12 @@ fn status_code_for_dedicated_variants() {
     assert_eq!(VaultError::LockPoisoned.status_code(), None);
     assert_eq!(VaultError::CircuitOpen.status_code(), None);
     assert_eq!(
-        VaultError::FieldNotFound { mount: "s".into(), path: "p".into(), field: "f".into() }
-            .status_code(),
+        VaultError::FieldNotFound {
+            mount: "s".into(),
+            path: "p".into(),
+            field: "f".into()
+        }
+        .status_code(),
         None
     );
 }
@@ -260,8 +284,7 @@ fn vault_response_deserialize_with_data() {
         "data": { "key": "value" },
         "warnings": null,
     });
-    let resp: VaultResponse<HashMap<String, String>> =
-        serde_json::from_value(json).unwrap();
+    let resp: VaultResponse<HashMap<String, String>> = serde_json::from_value(json).unwrap();
     assert_eq!(resp.request_id.as_deref(), Some("abc-123"));
     assert_eq!(resp.data.unwrap()["key"], "value");
 }
@@ -273,8 +296,7 @@ fn vault_response_deserialize_without_data() {
         "lease_id": "",
         "renewable": false,
     });
-    let resp: VaultResponse<serde_json::Value> =
-        serde_json::from_value(json).unwrap();
+    let resp: VaultResponse<serde_json::Value> = serde_json::from_value(json).unwrap();
     assert!(resp.data.is_none());
 }
 

@@ -243,9 +243,7 @@ async fn lease_read() {
     // but we can verify the API call succeeds or returns a known error
     let result = client.sys().read_lease(&lease_id).await;
     // Either succeeds or we get NotFound — both prove the API path works
-    assert!(
-        result.is_ok() || matches!(result.unwrap_err(), VaultError::Api { .. })
-    );
+    assert!(result.is_ok() || matches!(result.unwrap_err(), VaultError::Api { .. }));
 
     client
         .auth()

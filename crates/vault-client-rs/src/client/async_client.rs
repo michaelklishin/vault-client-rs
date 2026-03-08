@@ -136,9 +136,7 @@ impl ClientBuilder {
             .or_else(|| {
                 let v = std::env::var("VAULT_SKIP_TLS_VERIFY").ok();
                 if v.is_some() {
-                    tracing::warn!(
-                        "VAULT_SKIP_TLS_VERIFY is non-standard; use VAULT_SKIP_VERIFY"
-                    );
+                    tracing::warn!("VAULT_SKIP_TLS_VERIFY is non-standard; use VAULT_SKIP_VERIFY");
                 }
                 v
             })
@@ -368,8 +366,7 @@ fn build_reqwest_client(
     }
 
     if let (Some(cert_pem), Some(key_pem)) = (client_cert_pem, client_key_pem) {
-        let mut combined =
-            Zeroizing::new(Vec::with_capacity(cert_pem.len() + key_pem.len()));
+        let mut combined = Zeroizing::new(Vec::with_capacity(cert_pem.len() + key_pem.len()));
         combined.extend_from_slice(cert_pem);
         combined.extend_from_slice(key_pem);
         let identity = reqwest::tls::Identity::from_pem(&combined)
@@ -992,7 +989,9 @@ impl VaultClient {
                             continue;
                         }
                         503 => {
-                            let e = VaultError::Sealed { url: url.to_string() };
+                            let e = VaultError::Sealed {
+                                url: url.to_string(),
+                            };
                             if attempt >= max || !self.inner.config.retry_on_sealed {
                                 return Err(e);
                             }

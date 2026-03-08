@@ -138,9 +138,7 @@ impl SysHandler<'_> {
         resp.wrap_info.ok_or(VaultError::EmptyResponse)
     }
 
-    pub async fn in_flight_requests(
-        &self,
-    ) -> Result<HashMap<String, InFlightRequest>, VaultError> {
+    pub async fn in_flight_requests(&self) -> Result<HashMap<String, InFlightRequest>, VaultError> {
         self.client
             .exec_direct(Method::GET, "sys/in-flight-req", None)
             .await

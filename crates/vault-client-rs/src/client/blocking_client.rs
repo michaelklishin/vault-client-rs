@@ -156,10 +156,7 @@ impl BlockingClientBuilder {
     }
 
     /// Register a callback invoked whenever the client's token changes
-    pub fn on_token_changed(
-        mut self,
-        f: impl Fn(&AuthInfo) + Send + Sync + 'static,
-    ) -> Self {
+    pub fn on_token_changed(mut self, f: impl Fn(&AuthInfo) + Send + Sync + 'static) -> Self {
         self.0 = self.0.on_token_changed(f);
         self
     }

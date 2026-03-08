@@ -49,7 +49,11 @@ pub enum VaultError {
     CircuitOpen,
 
     #[error("Field '{field}' not found at '{mount}/{path}'")]
-    FieldNotFound { mount: String, path: String, field: String },
+    FieldNotFound {
+        mount: String,
+        path: String,
+        field: String,
+    },
 }
 
 impl From<serde_json::Error> for VaultError {

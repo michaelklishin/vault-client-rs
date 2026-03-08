@@ -9,7 +9,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 use crate::common::build_test_client;
 use vault_client_rs::blocking::BlockingClientBuilder;
 use vault_client_rs::blocking::VaultClient as BlockingVaultClient;
-use vault_client_rs::{ClientBuilder, KvReadResponse, Kv2Operations, VaultClient, VaultError};
+use vault_client_rs::{ClientBuilder, Kv2Operations, KvReadResponse, VaultClient, VaultError};
 
 // ---------------------------------------------------------------------------
 // Item 1: ~/.vault-token fallback — from_env() resolves the token
@@ -33,7 +33,10 @@ async fn from_env_without_address_fails_with_config_error() {
     let result = ClientBuilder::from_env().build();
     match result {
         Err(VaultError::Config(msg)) => {
-            assert!(msg.contains("address"), "expected address error, got: {msg}");
+            assert!(
+                msg.contains("address"),
+                "expected address error, got: {msg}"
+            );
         }
         Ok(_) => {
             // VAULT_ADDR is set in this environment — acceptable
@@ -94,13 +97,21 @@ async fn sealed_display_includes_url() {
 
 #[test]
 fn sealed_is_still_retryable() {
-    assert!(VaultError::Sealed { url: "http://vault:8200".into() }.is_retryable());
+    assert!(
+        VaultError::Sealed {
+            url: "http://vault:8200".into()
+        }
+        .is_retryable()
+    );
 }
 
 #[test]
 fn sealed_status_code_is_503() {
     assert_eq!(
-        VaultError::Sealed { url: "http://vault:8200".into() }.status_code(),
+        VaultError::Sealed {
+            url: "http://vault:8200".into()
+        }
+        .status_code(),
         Some(503)
     );
 }
@@ -327,7 +338,11 @@ async fn field_not_found_includes_mount() {
         .unwrap_err();
 
     match err {
-        VaultError::FieldNotFound { ref mount, ref path, ref field } => {
+        VaultError::FieldNotFound {
+            ref mount,
+            ref path,
+            ref field,
+        } => {
             assert_eq!(mount, "ops/kv");
             assert_eq!(path, "app/cfg");
             assert_eq!(field, "missing");
@@ -366,7 +381,10 @@ fn field_not_found_display_with_nested_mount() {
         msg.contains("ops/kv/app/cfg"),
         "nested mount should render as mount/path, got: {msg}"
     );
-    assert!(msg.contains("token"), "field name should appear, got: {msg}");
+    assert!(
+        msg.contains("token"),
+        "field name should appear, got: {msg}"
+    );
 }
 
 proptest! {
@@ -403,7 +421,10 @@ fn blocking_builder_from_env_chains_with_overrides() {
         .token_str("tok")
         .max_retries(0)
         .build();
-    assert!(result.is_ok(), "from_env().build() should succeed: {result:?}");
+    assert!(
+        result.is_ok(),
+        "from_env().build() should succeed: {result:?}"
+    );
 }
 
 #[test]
