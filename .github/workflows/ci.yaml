@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 name: CI
 
 on:
@@ -86,3 +88,14 @@ jobs:
 
       - name: Run all tests
         run: RUST_BACKTRACE=1 cargo nextest run --all-features --workspace --no-fail-fast
+
+  audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo generate-lockfile
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
