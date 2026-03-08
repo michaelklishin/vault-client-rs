@@ -1,6 +1,11 @@
 # vault-client-rs Change Log
 
-## 0.8.0 (in development)
+## 0.9.0 (in development)
+
+No changes yet.
+
+
+## 0.8.0 (Mar 7, 2026)
 
 ### Enhancements
 
