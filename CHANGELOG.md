@@ -2,7 +2,9 @@
 
 ## 0.8.0 (in development)
 
-No changes yet.
+### Enhancements
+
+ * Publishing to `crates.io` now uses [Trusted Publishing](https://crates.io/docs/trusted-publishing)
 
 
 ## 0.7.0 (Feb 25, 2026)
