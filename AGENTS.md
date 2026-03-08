@@ -98,8 +98,7 @@ To produce a new release:
  7. Push: `git push && git push --tags`
 
 Publishing to crates.io is handled automatically by `.github/workflows/release.yml` via
-Trusted Publishing — no API tokens or manual `cargo publish` needed. The workflow validates
-that the tag matches the version in `Cargo.toml`, then publishes.
+[Trusted Publishing](https://crates.io/docs/trusted-publishing).
 
 ## Git Commits
 
