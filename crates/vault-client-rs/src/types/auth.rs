@@ -531,6 +531,8 @@ pub struct OidcRoleRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bound_claims: Option<HashMap<String, String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub bound_issuer: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub token_policies: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token_ttl: Option<String>,
@@ -542,6 +544,8 @@ pub struct OidcRoleRequest {
     pub groups_claim: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub claim_mappings: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clock_skew_leeway: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
